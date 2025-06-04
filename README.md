@@ -121,7 +121,7 @@ temperature,irradiance,humidity,panel_age,maintenance_count,soiling_ratio,voltag
 ## 🧩 Pipeline Components
 
 - **Data Preprocessing**: Cleans, imputes, and engineers features from raw data. Saves preprocessing parameters and scaler for consistent prediction.
-- **Model Training**: Trains multiple regression models (Linear, Ridge, Lasso, ElasticNet, RandomForest, GradientBoosting, XGBoost, LightGBM, SVR, KNN)
+- **Model Training**: Trains multiple regression models (Linear, RandomForest, GradientBoosting, XGBoost, LightGBM, SVR, KNN)
 - **Model Evaluation**: Evaluates models using cross-validation RMSE and other metrics. Only model files (not scalers) are loaded for evaluation.
 - **Model Selection**: Hyperparameter tuning and best model selection (by CV RMSE)
 - **Prediction**: Predicts efficiency for new data using the trained model and saved preprocessing/scaler artifacts
