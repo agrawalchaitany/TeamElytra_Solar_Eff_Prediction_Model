@@ -4,6 +4,49 @@ A robust, modular machine learning pipeline for predicting solar panel efficienc
 
 ---
 
+## 🧠 Approach
+
+This pipeline follows a modular, end-to-end machine learning workflow tailored for solar panel efficiency prediction. It emphasizes:
+- Careful data cleaning and imputation
+- Domain-specific feature engineering
+- Training and comparing multiple regression models
+- Rigorous evaluation and model selection
+- Saving all artifacts for reproducible batch and API predictions
+
+Each step is implemented as a separate, reusable module for clarity and maintainability.
+
+## 🛠️ Feature Engineering Details
+
+Feature engineering is designed with photovoltaic domain knowledge, including:
+- **Derived Features**: Calculating power (voltage × current), temperature differentials, and soiling-adjusted irradiance
+- **Categorical Encoding**: One-hot encoding for string_id, error_code, and installation_type
+- **Temporal Features**: Extracting time-based features if timestamps are present (e.g., hour, day, season)
+- **Interaction Terms**: Combining features such as humidity × temperature to capture non-linear effects
+- **Scaling**: RobustScaler is used to handle outliers in sensor data
+
+All feature engineering logic is implemented in `src/data_preprocessing/data_preprocessing.py`.
+
+## 🧰 Tools Used
+
+- **Data Processing**: numpy, pandas
+- **Visualization**: matplotlib, seaborn
+- **Modeling**: scikit-learn, xgboost, lightgbm
+- **Persistence**: joblib
+- **Utilities**: Custom logging (`src/utils/terminal_logger.py`)
+
+## 📂 Source File References
+
+- **Data Preprocessing & Feature Engineering**: `src/data_preprocessing/data_preprocessing.py`
+- **EDA**: `src/eda/data_exploration.ipynb`, `src/eda/data_analysis.ipynb`
+- **Model Training**: `src/modeling/model_training.py`
+- **Model Evaluation**: `src/modeling/model_evaluation.py`
+- **Model Selection & Tuning**: `src/modeling/model_selection.py`
+- **Prediction API**: `src/prediction/predictor.py`
+- **Batch Prediction Script**: `predict.py`
+- **Pipeline Orchestration**: `main.py`
+
+---
+
 ## 📦 Project Structure
 
 ```
