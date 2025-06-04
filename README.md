@@ -7,7 +7,7 @@ A robust, modular machine learning pipeline for predicting solar panel efficienc
 ## 📦 Project Structure
 
 ```
-solar_panel_eff_regression/
+Solar_Eff_Prediction_Model/
 ├── main.py                  # Main pipeline orchestration script
 ├── predict.py               # Command-line batch prediction script
 ├── requirements.txt         # Python dependencies
@@ -22,8 +22,7 @@ solar_panel_eff_regression/
 │   ├── sample_submission.csv
 │   └── processed_data/
 │       ├── X_Train.csv
-│       ├── X_Test.csv
-│       └── y_train.csv
+│       ├── y_train.csv
 │
 ├── src/
 │   ├── data_preprocessing/
@@ -40,20 +39,31 @@ solar_panel_eff_regression/
 │   └── utils/
 │       └── terminal_logger.py      # Terminal logging utility
 │
-├── models/                 # Trained model artifacts
-│   ├── best_model.joblib
-│   ├── best_model_info.json
-│   └── ...
+├── models/                 # Trained model artifacts and preprocessing
+│   ├── best_model/
+│   │   ├── best_model.joblib
+│   │   └── best_model_info.json
+│   ├── all_models/
+│   │   ├── gradient_boosting.joblib
+│   │   ├── knn.joblib
+│   │   ├── lightgbm.joblib
+│   │   ├── linear.joblib
+│   │   ├── random_forest.joblib
+│   │   ├── svr.joblib
+│   │   └── xgboost.joblib
+│   ├── preprocessing_params.json   # Preprocessing parameters
+│   └── robust_scaler.joblib        # Saved RobustScaler for prediction
 │
 ├── logs/                   # Training and pipeline logs
 │   └── training_log_*.txt
 │
 ├── results/                # Model comparison, feature importance, etc.
 │   ├── model_comparison.csv
-│   └── feature_importance_*.png
+│   ├── submission.csv
+│   └── *.png
 │
-└── plots/                  # Visualization outputs
-    └── ...
+├── plots/                  # Visualization outputs
+│   └── ...
 ```
 
 ---
@@ -110,18 +120,18 @@ temperature,irradiance,humidity,panel_age,maintenance_count,soiling_ratio,voltag
 
 ## 🧩 Pipeline Components
 
-- **Data Preprocessing**: Cleans, imputes, and engineers features from raw data
+- **Data Preprocessing**: Cleans, imputes, and engineers features from raw data. Saves preprocessing parameters and scaler for consistent prediction.
 - **Model Training**: Trains multiple regression models (Linear, Ridge, Lasso, ElasticNet, RandomForest, GradientBoosting, XGBoost, LightGBM, SVR, KNN)
-- **Model Evaluation**: Evaluates models using cross-validation RMSE and other metrics
+- **Model Evaluation**: Evaluates models using cross-validation RMSE and other metrics. Only model files (not scalers) are loaded for evaluation.
 - **Model Selection**: Hyperparameter tuning and best model selection (by CV RMSE)
-- **Prediction**: Predicts efficiency for new data using the trained model
+- **Prediction**: Predicts efficiency for new data using the trained model and saved preprocessing/scaler artifacts
 - **Logging**: All terminal output and key events are saved in the `logs/` directory
 
 ---
 
 ## 📊 Results & Visualization
 - Model comparison and feature importance plots are saved in `results/` and `plots/`
-- All trained models are saved in `models/`
+- All trained models and preprocessing artifacts are saved in `models/`
 - Logs for each run are in `logs/`
 
 ---
