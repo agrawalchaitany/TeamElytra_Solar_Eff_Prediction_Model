@@ -68,6 +68,8 @@ coverage.xml
 ehthumbs.db
 Thumbs.db
 
+models/random_forest.joblib
+
 # Node modules (if using any JavaScript tools)
 node_modules/
 npm-debug.log*
