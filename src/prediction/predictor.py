@@ -23,17 +23,17 @@ class SolarEfficiencyPredictor:
         preprocessor : DataPreprocessor, optional
             Preprocessor instance for data preparation
         """
+        base_dir = Path(os.path.dirname(os.path.abspath(__file__))).parent.parent
         # Set default model path
         if model_path is None:
-            base_dir = Path(os.path.dirname(os.path.abspath(__file__))).parent.parent
-            model_path = os.path.join(base_dir, "models", "best_model.joblib")
-        
+            model_path = os.path.join(base_dir, "models/best_model", "best_model.joblib")
+            params_path= os.path.join(base_dir, "models", "preprocessor_params.json")
         # Load model
         self.model = joblib.load(model_path)
         
         # Load model info if available
         self.model_info = None
-        model_info_path = os.path.join(os.path.dirname(model_path), "best_model_info.json")
+        model_info_path = os.path.join(base_dir, "models/best_model", "best_model_info.json")
         if os.path.exists(model_info_path):
             with open(model_info_path, 'r') as f:
                 self.model_info = json.load(f)
@@ -50,8 +50,17 @@ class SolarEfficiencyPredictor:
             preprocessor = DataPreprocessor(
                 numerical_cols=numerical_cols,
                 categorical_cols=categorical_cols,
-                target_col=target_col
+                target_col=target_col,
+                prediction_only=True  # Initialize for prediction only
             )
+            
+            # Try to load preprocessor parameters if available
+            params_path = os.path.join(base_dir, "models", "preprocessor_params.json")
+            if os.path.exists(params_path):
+                try:
+                    preprocessor.load_parameters(params_path)
+                except Exception as e:
+                    print(f"Warning: Could not load preprocessor parameters: {e}")
         
         self.preprocessor = preprocessor
         self.prediction_history = []
@@ -78,15 +87,16 @@ class SolarEfficiencyPredictor:
         # Preprocess if needed
         if preprocess and self.preprocessor:
             try:
+                # Mark preprocessor as fitted for prediction
+                self.preprocessor.fitted = True
+                
+                # Use simplified preprocess method
                 processed_data = self.preprocessor.preprocess(
-                    train_df=None,
-                    test_df=data_copy,
+                    df=data_copy,
+                    is_train=False,
                     handle_outliers_method='iqr',
                     handle_invalid=True
                 )
-                
-                if isinstance(processed_data, tuple):
-                    processed_data = processed_data[1]  # Get test data from tuple
             except Exception as e:
                 raise ValueError(f"Error during preprocessing: {str(e)}")
         else:

@@ -1,9 +1,10 @@
 import pandas as pd
 import numpy as np
+import json
 from sklearn.preprocessing import RobustScaler
 
 class DataPreprocessor:
-    def __init__(self, numerical_cols=None, categorical_cols=None, target_col=None):
+    def __init__(self, numerical_cols=None, categorical_cols=None, target_col=None, prediction_only=False):
         """
         Initialize the DataPreprocessor with column definitions
         
@@ -15,20 +16,29 @@ class DataPreprocessor:
             List of categorical column names
         target_col : str
             Name of the target column
+        prediction_only : bool, default=False
+            Whether to initialize for prediction only (skip fitting checks)
         """
         self.numerical_cols = numerical_cols if numerical_cols else []
         self.categorical_cols = categorical_cols if categorical_cols else []
         self.target_col = target_col
         self.scaler = RobustScaler()
-        self.fitted = False
+        self.fitted = prediction_only  # Set to True if prediction_only
         self.train_columns = None
+        
+        # Initialize containers for fitted parameters
+        self.medians = {}
+        self.modes = {}
+        self.bounds = {}
+        self.valid_medians = {}
     
     def convert_to_numeric(self, df):
         """Convert specified columns to numeric format"""
+        df_copy = df.copy()
         for col in self.numerical_cols:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
-        return df
+            if col in df_copy.columns:
+                df_copy[col] = pd.to_numeric(df_copy[col], errors='coerce')
+        return df_copy
        
     def handle_invalid_values(self, df, is_train=True):
         """
@@ -98,6 +108,7 @@ class DataPreprocessor:
         df_copy.loc[inconsistent_current, 'current'] = self.valid_medians['current']
         
         return df_copy    
+    
     def handle_missing_values(self, df, is_train=True):
         """
         Fill missing values in the dataframe
@@ -154,7 +165,7 @@ class DataPreprocessor:
         if 'panel_age' in df_copy.columns:
             if 'maintenance_count' in df_copy.columns:
                 # Avoid division by zero
-                df_copy['maintenance_frequency'] = df_copy['maintenance_count'] / df_copy['panel_age'].replace(0, 0.001)
+                df_copy['maintenance_frequency'] = df_copy['maintenance_count'] / df_copy['panel_age'].replace(0, 0.0001)
             
             if 'soiling_ratio' in df_copy.columns:
                 df_copy['age_efficiency_factor'] = df_copy['panel_age'] * df_copy['soiling_ratio']
@@ -266,119 +277,173 @@ class DataPreprocessor:
         # Reorder columns to match training data
         return df[self.train_columns]
     
-    def preprocess(self, train_df, test_df=None, handle_outliers_method=None, handle_invalid=True):
+    def preprocess(self, df, is_train=True, handle_outliers_method=None, handle_invalid=True):
         """
-        Main preprocessing function to process both training and test data
+        Process a single dataframe (training or prediction data)
         
         Parameters:
         -----------
-        train_df : pandas DataFrame
-            Training dataframe
-        test_df : pandas DataFrame, optional
-            Test dataframe
+        df : pandas DataFrame
+            DataFrame to preprocess
+        is_train : bool, default=True
+            Whether this is training data (True) or prediction data (False)
         handle_outliers_method : str, optional
             Method to handle outliers ('iqr', 'percentile')
         handle_invalid : bool, default=True
-            Whether to handle invalid/impossible values in solar panel measurements
+            Whether to handle invalid/impossible values
             
         Returns:
         --------
-        train_df_processed : pandas DataFrame
-            Processed training data
-        test_df_processed : pandas DataFrame, optional
-            Processed test data (if provided)
+        processed_df : pandas DataFrame
+            Processed dataframe
         """
-        # Process training data
-        train_copy = train_df.copy()
+        # Check if the dataframe is None
+        if df is None:
+            return None
+            
+        # Check if we're in prediction mode but preprocessor is not fitted
+        if not is_train and not self.fitted:
+            raise ValueError("Preprocessor not fitted. Process training data first.")
         
-        # Convert to numeric
-        train_copy = self.convert_to_numeric(train_copy)
-        
-        # Handle physically impossible values if requested
+        # Start preprocessing
+        df_copy = df.copy()
+        df_copy = self.convert_to_numeric(df_copy)
+
         if handle_invalid:
-            train_copy = self.handle_invalid_values(train_copy, is_train=True)
-        
-        # Handle missing values
-        train_copy = self.handle_missing_values(train_copy, is_train=True)
-        
-        # Engineer features (after handling missing values)
-        train_copy = self.engineer_features(train_copy)  
-             
-        # Handle outliers if specified
+            df_copy = self.handle_invalid_values(df_copy, is_train=is_train)
+
+        df_copy = self.handle_missing_values(df_copy, is_train=is_train)
+        df_copy = self.engineer_features(df_copy)
+
         if handle_outliers_method:
-            train_copy = self.handle_outliers(train_copy, method=handle_outliers_method, is_train=True)
-        
-        # Encode categorical variables
-        train_copy = self.encode_categorical(train_copy, is_train=True)
-        
-        # Scale features
-        train_copy = self.scale_features(train_copy, is_train=True)
-        
-        # If test data provided, process it too
-        if test_df is not None:
-            test_copy = test_df.copy()
-            
-            # Convert to numeric
-            test_copy = self.convert_to_numeric(test_copy)
-            
-            # Handle physically impossible values if requested
-            if handle_invalid:
-                test_copy = self.handle_invalid_values(test_copy, is_train=False)
-            
-            # Handle missing values
-            test_copy = self.handle_missing_values(test_copy, is_train=False)
-            
-            # Engineer features (after handling missing values)
-            test_copy = self.engineer_features(test_copy)        
-            
-            # Handle outliers if specified
-            if handle_outliers_method:
-                test_copy = self.handle_outliers(test_copy, method=handle_outliers_method, is_train=False)
-            
-            # Encode categorical variables
-            test_copy = self.encode_categorical(test_copy, is_train=False)
-            
-            # Scale features
-            test_copy = self.scale_features(test_copy, is_train=False)
-            
-            # Ensure columns match training data
-            test_copy = self.align_test_columns(test_copy)
-            
-            return train_copy, test_copy
-        
-        return train_copy
-    
-    def save_preprocessed_data(self, train_df, test_df=None, train_path="Clean_X_Train.csv", 
-                               test_path="Clean_Test_Data.csv", target_path=None):
+            df_copy = self.handle_outliers(df_copy, method=handle_outliers_method, is_train=is_train)
+
+        df_copy = self.encode_categorical(df_copy, is_train=is_train)
+        df_copy = self.scale_features(df_copy, is_train=is_train)
+
+        # For prediction data, ensure columns match training data
+        if not is_train:
+            df_copy = self.align_test_columns(df_copy)
+
+        return df_copy
+
+    def save_preprocessed_data(self, df, df_path=None, target_path=None):
         """
         Save preprocessed data to CSV files
         
         Parameters:
         -----------
-        train_df : pandas DataFrame
+        df : pandas DataFrame
             Processed training data
-        test_df : pandas DataFrame, optional
-            Processed test data
-        train_path : str
+        df_path : str
             Path to save training data
-        test_path : str
-            Path to save test data
         target_path : str, optional
             Path to save target variable separately
         """
         # Save training data (with or without target)
         if self.target_col and target_path:
             # Save X and y separately
-            X_train = train_df.drop(columns=[self.target_col])
-            y_train = train_df[self.target_col]
-            X_train.to_csv(train_path, index=False)
-            y_train.to_csv(target_path, index=False)
+            X = df.drop(columns=[self.target_col])
+            Y = df[self.target_col]
+            X.to_csv(df_path, index=False)
+            Y.to_csv(target_path, index=False)
         else:
             # Save full training data
-            train_df.to_csv(train_path, index=False)
+            df.to_csv(df_path, index=False)
         
-        # Save test data if provided
-        if test_df is not None:
-            test_df.to_csv(test_path, index=False)
+        print(f"Data saved successfully to {df_path}")
+    
+    def save_parameters(self, path='models/preprocessor_params.json'):
+        """
+        Save preprocessing parameters to a JSON file
         
-        print(f"Data saved successfully to {train_path}")
+        Parameters:
+        -----------
+        path : str, default='models/preprocessor_params.json'
+            Path to save parameters
+        """
+        if not self.fitted:
+            raise ValueError("Preprocessor not fitted yet. Process training data first.")
+            
+        # Convert numpy types to Python native types for JSON serialization
+        params = {
+            'numerical_cols': self.numerical_cols,
+            'categorical_cols': self.categorical_cols,
+            'target_col': self.target_col,
+            'medians': {k: float(v) for k, v in self.medians.items()},
+            'modes': self.modes,
+            'bounds': {k: (float(v[0]), float(v[1])) for k, v in self.bounds.items()},
+            'valid_medians': {k: float(v) for k, v in self.valid_medians.items()},
+            'train_columns': self.train_columns,
+            'fitted': self.fitted
+        }
+        
+        with open(path, 'w') as f:
+            json.dump(params, f, indent=4)
+            
+        print(f"Preprocessor parameters saved to {path}")
+        
+    def load_parameters(self, path='models/preprocessor_params.json'):
+        """
+        Load preprocessing parameters from a JSON file
+        
+        Parameters:
+        -----------
+        path : str, default='models/preprocessor_params.json'
+            Path to load parameters from
+        """
+        with open(path, 'r') as f:
+            params = json.load(f)
+        
+        self.numerical_cols = params['numerical_cols']
+        self.categorical_cols = params['categorical_cols']
+        self.target_col = params['target_col']
+        self.medians = params['medians']
+        self.modes = params['modes']
+        self.bounds = params['bounds']
+        self.valid_medians = params['valid_medians']
+        self.train_columns = params['train_columns']
+        self.fitted = params['fitted']
+        
+        print(f"Preprocessor parameters loaded from {path}")
+
+    def save_scaler(self, path='models/robust_scaler.joblib'):
+        """
+        Save the fitted RobustScaler to a file
+        
+        Parameters:
+        -----------
+        path : str, default='models/robust_scaler.joblib'
+            Path to save the scaler
+        """
+        if not self.fitted:
+            raise ValueError("Scaler not fitted yet. Process training data first.")
+        
+        import joblib
+        import os
+        
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        
+        # Save the scaler
+        joblib.dump(self.scaler, path)
+        print(f"Scaler saved to {path}")
+
+    def load_scaler(self, path='models/robust_scaler.joblib'):
+        """
+        Load a previously fitted RobustScaler
+        
+        Parameters:
+        -----------
+        path : str, default='models/robust_scaler.joblib'
+            Path to load the scaler from
+        """
+        import joblib
+        import os
+        
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Scaler file not found: {path}")
+        
+        self.scaler = joblib.load(path)
+        self.fitted = True
+        print(f"Scaler loaded from {path}")

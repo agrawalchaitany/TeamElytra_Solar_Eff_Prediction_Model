@@ -24,7 +24,7 @@ class ModelTrainer:
         # Set default directories relative to project root if not provided
         base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../..")
         self.data_dir = data_dir or os.path.join(base_dir, "dataset/processed_data")
-        self.output_dir = output_dir or os.path.join(base_dir, "models")
+        self.output_dir = output_dir or os.path.join(base_dir, "models/all_models")
         
         # Create output directory if it doesn't exist
         os.makedirs(self.output_dir, exist_ok=True)

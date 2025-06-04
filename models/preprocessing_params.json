@@ -1,0 +1,166 @@
+{
+    "numerical_cols": [
+        "temperature",
+        "irradiance",
+        "humidity",
+        "panel_age",
+        "maintenance_count",
+        "soiling_ratio",
+        "voltage",
+        "current",
+        "module_temperature",
+        "cloud_coverage",
+        "wind_speed",
+        "pressure",
+        "power",
+        "temp_differential",
+        "power_irradiance_ratio",
+        "soiling_impact",
+        "maintenance_frequency",
+        "age_efficiency_factor",
+        "humidity_temperature_interaction",
+        "wind_cooling_effect"
+    ],
+    "categorical_cols": [
+        "string_id",
+        "error_code",
+        "installation_type"
+    ],
+    "target_col": "efficiency",
+    "medians": {
+        "temperature": 24.72034535,
+        "irradiance": 505.7325876,
+        "humidity": 50.22415155,
+        "panel_age": 17.49773098,
+        "maintenance_count": 4.0,
+        "soiling_ratio": 0.6976634525000001,
+        "voltage": 19.82284604,
+        "current": 1.558413082,
+        "module_temperature": 29.8576686,
+        "cloud_coverage": 49.70413334,
+        "wind_speed": 7.396090601,
+        "pressure": 1012.906121
+    },
+    "modes": {
+        "string_id": "D4",
+        "error_code": "E00",
+        "installation_type": "tracking"
+    },
+    "bounds": {
+        "temperature": [
+            -5.262016532499988,
+            54.933958987499985
+        ],
+        "irradiance": [
+            -89.28833898749997,
+            1106.8770775125
+        ],
+        "humidity": [
+            -47.9773304525,
+            147.78333052750003
+        ],
+        "panel_age": [
+            -15.652788017499997,
+            50.7229488625
+        ],
+        "maintenance_count": [
+            0.0,
+            8.0
+        ],
+        "soiling_ratio": [
+            0.13698770412499983,
+            1.2611172671250002
+        ],
+        "voltage": [
+            -6.728417433750002,
+            45.34752993625
+        ],
+        "current": [
+            -1.5819095548750004,
+            4.805996086125001
+        ],
+        "module_temperature": [
+            -1.3924750799999934,
+            60.99034703999999
+        ],
+        "cloud_coverage": [
+            -44.32505103875002,
+            144.67202731125002
+        ],
+        "wind_speed": [
+            -7.462523475000002,
+            22.280380577000003
+        ],
+        "pressure": [
+            985.976576875,
+            1040.0034718749998
+        ],
+        "power": [
+            -52.305109338230594,
+            112.65216737033757
+        ],
+        "temp_differential": [
+            -3.743737633749999,
+            13.785131596249999
+        ],
+        "power_irradiance_ratio": [
+            -0.10085482143722763,
+            0.22797712919008112
+        ],
+        "soiling_impact": [
+            -139.72686787620714,
+            833.6528485131917
+        ],
+        "maintenance_frequency": [
+            -0.32313774904345294,
+            0.8933225589622876
+        ],
+        "age_efficiency_factor": [
+            -10.732377641484835,
+            34.08448753606447
+        ],
+        "humidity_temperature_interaction": [
+            -1615.2465292541435,
+            3903.902214028786
+        ],
+        "wind_cooling_effect": [
+            -62.32297120506877,
+            129.33812199721334
+        ]
+    },
+    "valid_medians": {
+        "irradiance": 505.7325876,
+        "voltage": 19.82284604,
+        "current": 1.558413082
+    },
+    "train_columns": [
+        "temperature",
+        "irradiance",
+        "humidity",
+        "panel_age",
+        "maintenance_count",
+        "soiling_ratio",
+        "voltage",
+        "current",
+        "module_temperature",
+        "cloud_coverage",
+        "wind_speed",
+        "pressure",
+        "power",
+        "temp_differential",
+        "power_irradiance_ratio",
+        "soiling_impact",
+        "maintenance_frequency",
+        "age_efficiency_factor",
+        "humidity_temperature_interaction",
+        "wind_cooling_effect",
+        "string_id_B2",
+        "string_id_C3",
+        "string_id_D4",
+        "error_code_E01",
+        "error_code_E02",
+        "installation_type_fixed",
+        "installation_type_tracking"
+    ],
+    "fitted": true
+}

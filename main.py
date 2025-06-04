@@ -48,14 +48,13 @@ def preprocess_data(args):
     # Load data
     print("Loading datasets...")
     train_df = pd.read_csv("dataset/train.csv")
-    test_df = pd.read_csv("dataset/test.csv")
-    print(f"Train shape: {train_df.shape}, Test shape: {test_df.shape}")
+    print(f"Train shape: {train_df.shape}")
     
     # Process data
     print("Preprocessing data...")
-    train_processed, test_processed = preprocessor.preprocess(
-        train_df=train_df,
-        test_df=test_df,
+    train_processed = preprocessor.preprocess(
+        df=train_df,
+        is_train=True,
         handle_outliers_method='iqr',
         handle_invalid=True
     )
@@ -63,15 +62,18 @@ def preprocess_data(args):
     # Save processed data
     print("Saving preprocessed data...")
     preprocessor.save_preprocessed_data(
-        train_df=train_processed,
-        test_df=test_processed,
-        train_path="dataset/processed_data/X_Train.csv",
-        test_path="dataset/processed_data/X_Test.csv",
+        df=train_processed,
+        df_path="dataset/processed_data/X_Train.csv",
         target_path="dataset/processed_data/y_train.csv"
     )
-    
+    print("Save scaler to .joblib file")
+    preprocessor.save_scaler()
+    print("Save preprocessing parameters to a JSON file")
+    preprocessor.save_parameters(
+        path="models/preprocessing_params.json"
+    )
+
     print(f"Preprocessed training data shape: {train_processed.shape}")
-    print(f"Preprocessed test data shape: {test_processed.shape}")
     print("Preprocessing complete!")
     
     return True
@@ -84,7 +86,7 @@ def train_models(args):
     
     trainer = ModelTrainer(
         data_dir="dataset/processed_data",
-        output_dir="models"
+        output_dir="models/all_models"
     )
     
     # Load data
@@ -115,7 +117,7 @@ def evaluate_models(args):
     
     evaluator = ModelEvaluator(
         data_dir="dataset/processed_data",
-        models_dir="models"
+        models_dir="models/all_models",
     )
     
     # Load data
@@ -140,7 +142,7 @@ def evaluate_models(args):
     
     # For the best model, show more detailed evaluations
     best_model = comparison.index[0]
-    print(f"\nBest model based on RMSE: {best_model}")
+    print(f"\nBest model based on CV_RMSE: {best_model}")
     
     if not args.no_plots:
         print("Generating plots for best model...")
@@ -161,7 +163,7 @@ def select_best_model(args):
     
     selector = ModelSelector(
         data_dir="dataset/processed_data",
-        output_dir="models"
+        output_dir="models/best_model",
     )
     
     # Load data

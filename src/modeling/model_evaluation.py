@@ -22,7 +22,7 @@ class ModelEvaluator:
         # Set default directories relative to project root if not provided
         base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../..")
         self.data_dir = data_dir or os.path.join(base_dir, "dataset/processed_data")
-        self.models_dir = models_dir or os.path.join(base_dir, "models")
+        self.models_dir = models_dir or os.path.join(base_dir, "models/all_models")
         
         # Initialize dictionaries for models and results
         self.models = {}
@@ -32,18 +32,15 @@ class ModelEvaluator:
         """Load preprocessed training and test data"""
         X_train_path = os.path.join(self.data_dir, "X_Train.csv")
         y_train_path = os.path.join(self.data_dir, "y_train.csv")
-        X_test_path = os.path.join(self.data_dir, "X_Test.csv")
         
         print(f"Loading data from {self.data_dir}")
         self.X_train = pd.read_csv(X_train_path)
         self.y_train = pd.read_csv(y_train_path).values.ravel()
-        self.X_test = pd.read_csv(X_test_path)
         
         print(f"Loaded X_train with shape: {self.X_train.shape}")
         print(f"Loaded y_train with shape: {self.y_train.shape}")
-        print(f"Loaded X_test with shape: {self.X_test.shape}")
         
-        return self.X_train, self.y_train, self.X_test
+        return self.X_train, self.y_train
     
     def load_models(self, model_names=None):
         """
