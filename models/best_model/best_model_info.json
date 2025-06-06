@@ -1,12 +1,12 @@
 {
     "model_name": "lightgbm",
-    "cv_rmse": 0.1051001839351378,
+    "cv_rmse": 0.10476310669940918,
     "parameters": {
         "subsample": 0.7,
-        "num_leaves": 20,
-        "n_estimators": 300,
-        "max_depth": 6,
-        "learning_rate": 0.05,
+        "num_leaves": 31,
+        "n_estimators": 500,
+        "max_depth": 12,
+        "learning_rate": 0.01,
         "colsample_bytree": 0.9
     }
 }

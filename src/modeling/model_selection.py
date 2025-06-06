@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import joblib
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.ensemble import GradientBoostingRegressor
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
 
@@ -47,62 +47,7 @@ class ModelSelector:
         print(f"Loaded y_train with shape: {self.y_train.shape}")
         
         return self.X_train, self.y_train
-    
-    def tune_random_forest(self, param_grid=None, cv=5, n_jobs=-1, verbose=1):
-        """
-        Tune RandomForestRegressor hyperparameters
-        
-        Parameters:
-        -----------
-        param_grid : dict, optional
-            Grid of parameters to search
-        cv : int, default=5
-            Number of cross-validation folds
-        n_jobs : int, default=-1
-            Number of parallel jobs
-        verbose : int, default=1
-            Verbosity level
-            
-        Returns:
-        --------
-        best_model : fitted estimator
-            Best RandomForestRegressor model
-        """
-        if param_grid is None:
-            param_grid = {
-                'n_estimators': [100, 200, 300],
-                'max_depth': [None, 10, 20, 30],
-                'min_samples_split': [2, 5, 10],
-                'min_samples_leaf': [1, 2, 4],
-                'max_features': ['sqrt','log2',None]
-            }
-        
-        model = RandomForestRegressor(random_state=42)
-        
-        print("Tuning RandomForestRegressor...")
-        grid_search = GridSearchCV(
-            estimator=model,
-            param_grid=param_grid,
-            cv=cv,
-            n_jobs=n_jobs,
-            verbose=verbose,
-            scoring='neg_root_mean_squared_error'
-        )
-        
-        grid_search.fit(self.X_train, self.y_train)
-        
-        best_model = grid_search.best_estimator_
-        best_params = grid_search.best_params_
-        best_score = -grid_search.best_score_  # Convert back to RMSE
-        
-        print(f"Best RandomForest RMSE: {best_score:.4f}")
-        print(f"Best parameters: {best_params}")
-        
-        self.best_models['random_forest'] = best_model
-        self.best_params['random_forest'] = best_params
-        self.best_scores['random_forest'] = best_score
-        
-        return best_model, best_params, best_score
+
     
     def tune_xgboost(self, param_grid=None, cv=5, n_jobs=-1, verbose=1):
         """
@@ -353,7 +298,6 @@ if __name__ == "__main__":
     selector.load_data()
     
     # Tune models
-    # selector.tune_random_forest()
     selector.tune_gradient_boosting()
     selector.tune_xgboost()
     selector.tune_lightgbm()

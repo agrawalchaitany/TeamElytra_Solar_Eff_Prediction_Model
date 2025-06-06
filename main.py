@@ -169,11 +169,9 @@ def select_best_model(args):
     # Load data
     selector.load_data()
     
-    # Tune models
-    print("Performing hyperparameter tuning...")
-    
+    # Initial tuning for all models (coarse grid)
+    print("Performing initial hyperparameter tuning...")
     if args.fast:
-        # Limited tuning for fast mode
         print("Fast mode: Limited hyperparameter tuning")
         selector.tune_random_forest(param_grid={
             'n_estimators': [100, 200],
@@ -186,8 +184,6 @@ def select_best_model(args):
             'max_depth': [3, 5]
         })
     else:
-        # Full tuning
-        # selector.tune_random_forest()
         selector.tune_gradient_boosting()
         selector.tune_xgboost()
         selector.tune_lightgbm()
@@ -195,10 +191,48 @@ def select_best_model(args):
     # Compare models
     comparison = selector.compare_models()
     
-    # Select and save best model
+    # Select best model
     best_model_name, best_model, best_score = selector.select_best_model()
-    
-    print(f"\nModel selection complete. Best model: {best_model_name} with RMSE: {best_score:.4f}")
+    print(f"\nInitial model selection complete. Best model: {best_model_name} with RMSE: {best_score:.4f}")
+
+    # Fine-tune only the best model
+    print(f"\nFine-tuning the best model: {best_model_name}")
+    if best_model_name == 'gradient_boosting':
+        fine_param_grid = {
+            'n_estimators': [200, 300, 400, 500],
+            'learning_rate': [0.01, 0.03, 0.05, 0.07, 0.1],
+            'max_depth': [3, 5, 7, 9],
+            'min_samples_split': [2, 5, 10, 15],
+            'min_samples_leaf': [1, 2, 4, 6],
+            'subsample': [0.7, 0.8, 0.9, 1.0]
+        }
+        selector.tune_gradient_boosting(param_grid=fine_param_grid)
+    elif best_model_name == 'xgboost':
+        fine_param_grid = {
+            'n_estimators': [200, 300, 400, 500],
+            'learning_rate': [0.01, 0.03, 0.05, 0.07, 0.1],
+            'max_depth': [3, 6, 9, 12],
+            'subsample': [0.7, 0.8, 0.9, 1.0],
+            'colsample_bytree': [0.7, 0.8, 0.9, 1.0]
+        }
+        selector.tune_xgboost(param_grid=fine_param_grid)
+    elif best_model_name == 'lightgbm':
+        fine_param_grid = {
+            'n_estimators': [200, 300, 400, 500],
+            'learning_rate': [0.01, 0.03, 0.05, 0.07, 0.1],
+            'max_depth': [3, 6, 9, 12, 15],
+            'num_leaves': [20, 31, 50, 70],
+            'subsample': [0.7, 0.8, 0.9, 1.0],
+            'colsample_bytree': [0.7, 0.8, 0.9, 1.0]
+        }
+        selector.tune_lightgbm(param_grid=fine_param_grid)
+    else:
+        print(f"No fine-tuning implemented for model: {best_model_name}")
+
+    # Re-compare and re-select after fine-tuning
+    comparison = selector.compare_models()
+    best_model_name, best_model, best_score = selector.select_best_model()
+    print(f"\nFinal model selection complete. Best model: {best_model_name} with RMSE: {best_score:.4f}")
     
     return True
 

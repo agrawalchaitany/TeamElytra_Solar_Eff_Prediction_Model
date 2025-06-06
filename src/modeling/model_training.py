@@ -3,9 +3,7 @@ import pandas as pd
 import numpy as np
 import joblib
 from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.svm import SVR
-from sklearn.neighbors import KNeighborsRegressor
+from sklearn.ensemble import GradientBoostingRegressor
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
 
@@ -54,12 +52,8 @@ class ModelTrainer:
             'linear': LinearRegression(),
             
             # Ensemble models
-            'random_forest': RandomForestRegressor(n_estimators=100, random_state=42),
             'gradient_boosting': GradientBoostingRegressor(n_estimators=100, random_state=42),
             
-            # Other models
-            'svr': SVR(kernel='rbf', C=1.0, epsilon=0.1),
-            'knn': KNeighborsRegressor(n_neighbors=5)
         }
         
         # Add more advanced models if requested
