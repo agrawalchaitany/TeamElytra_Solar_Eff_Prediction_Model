@@ -39,8 +39,55 @@ class DataPreprocessor:
             if col in df_copy.columns:
                 df_copy[col] = pd.to_numeric(df_copy[col], errors='coerce')
         return df_copy
-       
+
     def handle_invalid_values(self, df, is_train=True):
+        """
+        Handles invalid or inconsistent solar panel data using physics-aware rules.
+        """
+        df_cleaned = df.copy()
+
+        # Drop duplicates
+        df_cleaned.drop_duplicates(inplace=True)
+                       
+        # Handle irradiance
+        if 'irradiance' in df_cleaned.columns:
+            df_cleaned.loc[df_cleaned['irradiance'] < 0, 'irradiance'] = 0
+            df_cleaned.loc[df_cleaned['irradiance'] > 1300, 'irradiance'] = 1300
+            # Do NOT drop rows with irradiance < 20, just set to 20
+            df_cleaned.loc[df_cleaned['irradiance'] < 20, 'irradiance'] = 20
+
+        # Voltage and current (physics: must be non-negative)
+        for col in ['voltage', 'current']:
+            if col in df_cleaned.columns:
+                # Fill negatives with median instead of NaN
+                median_val = df_cleaned[col].median() if not df_cleaned[col].dropna().empty else 0
+                df_cleaned.loc[df_cleaned[col] < 0, col] = median_val
+
+        # Temperature cleaning
+        if 'temperature' in df_cleaned.columns:
+            median_val = df_cleaned['temperature'].median() if not df_cleaned['temperature'].dropna().empty else 20
+            df_cleaned.loc[(df_cleaned['temperature'] < -40) | (df_cleaned['temperature'] > 60), 'temperature'] = median_val
+
+        if 'module_temperature' in df_cleaned.columns:
+            median_val = df_cleaned['module_temperature'].median() if not df_cleaned['module_temperature'].dropna().empty else 30
+            df_cleaned.loc[(df_cleaned['module_temperature'] < -20) | (df_cleaned['module_temperature'] > 90), 'module_temperature'] = median_val
+            # Panel temp should not be much lower than ambient (physics-informed check)
+            if 'temperature' in df_cleaned.columns:
+                too_low = df_cleaned['module_temperature'] < (df_cleaned['temperature'] - 5)
+                df_cleaned.loc[too_low, 'module_temperature'] = median_val
+
+
+        # Save medians for imputation (for test data)
+        if is_train:
+            for col in ['irradiance', 'voltage', 'current', 'temperature', 'module_temperature']:
+                if col in df_cleaned.columns:
+                    vals = df_cleaned[col].dropna()
+                    self.valid_medians[col] = vals.median() if not vals.empty else 0
+
+        return df_cleaned
+
+    # temp disabled for now,
+    def handle_invalid_(self, df, is_train=True):
         """
         Handle physically impossible or inconsistent values in solar panel measurements
         
@@ -125,69 +172,72 @@ class DataPreprocessor:
         # Handle numerical columns
         for col in self.numerical_cols:
             if col in df_copy.columns:
-                if is_train:
-                    self.medians[col] = df_copy[col].median()
-
-                df_copy[col] = df_copy[col].fillna(self.medians[col])
-        
+                # Always use the stored median for imputation (from training)
+                median = self.medians.get(col, 0)
+                df_copy[col] = df_copy[col].fillna(median)
+            else:
+                # If column missing, add and fill with median
+                median = self.medians.get(col, 0)
+                df_copy[col] = median
         # Handle categorical columns
         for col in self.categorical_cols:
             if col in df_copy.columns:
-                if is_train:
-                    self.modes[col] = df_copy[col].mode()[0]
-                df_copy[col] = df_copy[col].fillna(self.modes[col])
-        
+                # Always use the stored mode for imputation (from training)
+                mode = self.modes.get(col, "")
+                df_copy[col] = df_copy[col].fillna(mode)
+            else:
+                # If column missing, add and fill with mode
+                mode = self.modes.get(col, "")
+                df_copy[col] = mode
+        # Do NOT save medians/modes for test data (is_train=False)
         return df_copy
     
     def engineer_features(self, df):
-        """Create new features based on domain knowledge of solar panel physics"""
+        """Advanced feature engineering based on physics and data analysis"""
         df_copy = df.copy()
+
+        # Step 1: Base features
+        df_copy['power'] = df_copy['voltage'] * df_copy['current']
+        df_copy['temp_differential'] = df_copy['module_temperature'] - df_copy['temperature']
         
-        # Calculate power output
-        if 'voltage' in df_copy.columns and 'current' in df_copy.columns:
-            df_copy['power'] = df_copy['voltage'] * df_copy['current']
-        
-        # Calculate temperature differential
-        if 'temperature' in df_copy.columns and 'module_temperature' in df_copy.columns:
-            df_copy['temp_differential'] = df_copy['module_temperature'] - df_copy['temperature']
-        
-        # Calculate efficiency factors
-        if 'irradiance' in df_copy.columns:
-            # Calculate power to irradiance ratio (avoid division by zero)
-            if 'power' in df_copy.columns:
-                df_copy['power_irradiance_ratio'] = df_copy['power'] / df_copy['irradiance'].replace(0, 0.001)
-            
-            # Calculate soiling impact
-            if 'soiling_ratio' in df_copy.columns:
-                df_copy['soiling_impact'] = df_copy['soiling_ratio'] * df_copy['irradiance']
-        
-        # Panel age factors
-        if 'panel_age' in df_copy.columns:
-            if 'maintenance_count' in df_copy.columns:
-                # Avoid division by zero
-                df_copy['maintenance_frequency'] = df_copy['maintenance_count'] / df_copy['panel_age'].replace(0, 0.0001)
-            
-            if 'soiling_ratio' in df_copy.columns:
-                df_copy['age_efficiency_factor'] = df_copy['panel_age'] * df_copy['soiling_ratio']
-        
-        # Environmental interaction features
-        if 'humidity' in df_copy.columns and 'temperature' in df_copy.columns:
-            df_copy['humidity_temperature_interaction'] = df_copy['humidity'] * df_copy['temperature']
-        
-        if 'wind_speed' in df_copy.columns and 'temp_differential' in df_copy.columns:
-            df_copy['wind_cooling_effect'] = df_copy['wind_speed'] * df_copy['temp_differential']
-        
-        # Add engineered columns to numerical columns list for scaling
-        new_numerical_cols = [
+        # Step 2: Derived physics-based features
+        df_copy['power_irradiance_ratio'] = df_copy['power'] / df_copy['irradiance'].replace(0, 0.001)
+        df_copy['soiling_impact'] = df_copy['soiling_ratio'] * df_copy['irradiance']
+        df_copy['maintenance_frequency'] = df_copy['maintenance_count'] / df_copy['panel_age'].replace(0, 0.0001)
+        df_copy['age_efficiency_factor'] = df_copy['panel_age'] * df_copy['soiling_ratio']
+        df_copy['humidity_temperature_interaction'] = df_copy['humidity'] * df_copy['temperature']
+        df_copy['wind_cooling_effect'] = df_copy['wind_speed'] * df_copy['temp_differential']
+
+        # Step 3: Advanced interactions
+        df_copy['performance_efficiency'] = df_copy['power'] / (
+            df_copy['irradiance'].replace(0, 0.001) * (1 + df_copy['panel_age'])
+        )
+
+        df_copy['soiling_degradation'] = df_copy['soiling_ratio'] * df_copy['panel_age']
+
+        df_copy['environmental_stress'] = (
+            df_copy['humidity'] * df_copy['temperature'] * df_copy['cloud_coverage']
+        )
+
+        df_copy['wind_chill_effect'] = df_copy['wind_speed'] / (df_copy['module_temperature'] + 1)
+
+        df_copy['pressure_normalized_power'] = df_copy['power'] / df_copy['pressure'].replace(0, 1)
+
+        # Add to numerical columns for scaling if not present
+        new_features = [
             'power', 'temp_differential', 'power_irradiance_ratio', 'soiling_impact',
-            'maintenance_frequency', 'age_efficiency_factor', 
-            'humidity_temperature_interaction', 'wind_cooling_effect'
+            'maintenance_frequency', 'age_efficiency_factor',
+            'humidity_temperature_interaction', 'wind_cooling_effect',
+            'performance_efficiency', 'soiling_degradation', 'environmental_stress',
+            'wind_chill_effect', 'pressure_normalized_power'
         ]
-        for col in new_numerical_cols:
+
+        for col in new_features:
             if col in df_copy.columns and col not in self.numerical_cols:
                 self.numerical_cols.append(col)
-        
-        return df_copy    
+        # Do NOT update self.train_columns here
+        return df_copy
+    
     
     def handle_outliers(self, df, method='iqr', is_train=True):
         """
@@ -272,8 +322,19 @@ class DataPreprocessor:
         # Add missing columns
         for col in self.train_columns:
             if col not in df.columns:
-                df[col] = 0
-        
+                # If the column is missing, add it and fill with median/mode if possible, else raise error
+                if col in self.numerical_cols:
+                    median = self.medians.get(col, 0)
+                    df[col] = median
+                elif col in self.categorical_cols:
+                    mode = self.modes.get(col, "")
+                    df[col] = mode
+                else:
+                    raise ValueError(f"Missing required feature column '{col}' in test data after preprocessing. This indicates a bug in the preprocessing pipeline.")
+        # Drop any extra columns not in train_columns
+        extra_cols = [col for col in df.columns if col not in self.train_columns]
+        if extra_cols:
+            df = df.drop(columns=extra_cols)
         # Reorder columns to match training data
         return df[self.train_columns]
     
@@ -319,12 +380,46 @@ class DataPreprocessor:
             df_copy = self.handle_outliers(df_copy, method=handle_outliers_method, is_train=is_train)
 
         df_copy = self.encode_categorical(df_copy, is_train=is_train)
+
+        # Drop low-importance features AFTER encoding (restore previous drop column names)
+        drop_cols = [
+            'maintenance_count', 'error_code_E01', 'error_code_E02',
+            'installation_type_fixed', 'installation_type_tracking',
+            'string_id_C3', 'string_id_B2', 'string_id_D4'
+        ]
+        to_drop = [col for col in drop_cols if col in df_copy.columns]
+        df_copy = df_copy.drop(columns=to_drop)
+        # Remove dropped columns from self.numerical_cols if present
+        self.numerical_cols = [col for col in self.numerical_cols if col not in to_drop]
+
+        # Set train_columns only once, after all feature engineering, encoding, and dropping (for training only)
+        if is_train:
+            self.train_columns = df_copy.columns.tolist()
+            if self.target_col and self.target_col in self.train_columns:
+                self.train_columns.remove(self.target_col)
+
         df_copy = self.scale_features(df_copy, is_train=is_train)
 
         # For prediction data, ensure columns match training data
         if not is_train:
-            df_copy = self.align_test_columns(df_copy)
-
+            # Align columns: add missing, drop extra
+            for col in self.train_columns:
+                if col not in df_copy.columns:
+                    # If the column is missing, add it and fill with median/mode if possible, else raise error
+                    if col in self.numerical_cols:
+                        median = self.medians.get(col, 0)
+                        df_copy[col] = median
+                    elif col in self.categorical_cols:
+                        mode = self.modes.get(col, "")
+                        df_copy[col] = mode
+                    else:
+                        raise ValueError(f"Missing required feature column '{col}' in test data after preprocessing. This indicates a bug in the preprocessing pipeline.")
+            # Drop any extra columns not in train_columns
+            extra_cols = [col for col in df_copy.columns if col not in self.train_columns]
+            if extra_cols:
+                df_copy = df_copy.drop(columns=extra_cols)
+            # Reorder columns to match training data
+            df_copy = df_copy[self.train_columns]
         return df_copy
 
     def save_preprocessed_data(self, df, df_path=None, target_path=None):

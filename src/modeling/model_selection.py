@@ -8,6 +8,7 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.ensemble import GradientBoostingRegressor
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
+from sklearn.linear_model import LinearRegression
 
 class ModelSelector:
     def __init__(self, data_dir=None, output_dir=None):
@@ -224,6 +225,112 @@ class ModelSelector:
         self.best_scores['gradient_boosting'] = best_score
         
         return best_model, best_params, best_score
+    
+    def train_and_evaluate_all_models(self):
+        """Train and evaluate all candidate models with default parameters (no tuning)"""
+        # Initialize models with default/fine-tuned defaults
+        self.best_models = {}
+        self.best_params = {}
+        self.best_scores = {}
+        # Gradient Boosting
+        gb_model = GradientBoostingRegressor(
+            n_estimators=500,
+            learning_rate=0.02,
+            max_depth=4,
+            min_samples_split=8,
+            min_samples_leaf=4,
+            subsample=0.7,
+            random_state=42
+        )
+        gb_model.fit(self.X_train, self.y_train)
+        gb_pred = gb_model.predict(self.X_train)
+        gb_rmse = np.sqrt(mean_squared_error(self.y_train, gb_pred))
+        gb_cv = RandomizedSearchCV(
+            estimator=gb_model,
+            param_distributions={},
+            n_iter=1,
+            cv=5,
+            n_jobs=-1,
+            verbose=0,
+            scoring='neg_root_mean_squared_error',
+            random_state=42
+        )
+        gb_cv.fit(self.X_train, self.y_train)
+        gb_cv_rmse = -gb_cv.best_score_
+        self.best_models['gradient_boosting'] = gb_model
+        self.best_params['gradient_boosting'] = gb_model.get_params()
+        self.best_scores['gradient_boosting'] = gb_cv_rmse
+        # XGBoost
+        xgb_model = XGBRegressor(
+            n_estimators=500,
+            learning_rate=0.02,
+            max_depth=4,
+            subsample=0.7,
+            colsample_bytree=0.7,
+            reg_alpha=1.0,
+            reg_lambda=2.0,
+            random_state=42
+        )
+        xgb_model.fit(self.X_train, self.y_train)
+        xgb_pred = xgb_model.predict(self.X_train)
+        xgb_rmse = np.sqrt(mean_squared_error(self.y_train, xgb_pred))
+        xgb_cv = RandomizedSearchCV(
+            estimator=xgb_model,
+            param_distributions={},
+            n_iter=1,
+            cv=5,
+            n_jobs=-1,
+            verbose=0,
+            scoring='neg_root_mean_squared_error',
+            random_state=42
+        )
+        xgb_cv.fit(self.X_train, self.y_train)
+        xgb_cv_rmse = -xgb_cv.best_score_
+        self.best_models['xgboost'] = xgb_model
+        self.best_params['xgboost'] = xgb_model.get_params()
+        self.best_scores['xgboost'] = xgb_cv_rmse
+        # LightGBM
+        lgbm_model = LGBMRegressor(
+            n_estimators=500,
+            learning_rate=0.02,
+            max_depth=5,
+            num_leaves=20,
+            subsample=0.7,
+            colsample_bytree=0.7,
+            reg_alpha=1.0,
+            reg_lambda=2.0,
+            random_state=42
+        )
+        lgbm_model.fit(self.X_train, self.y_train)
+        lgbm_pred = lgbm_model.predict(self.X_train)
+        lgbm_rmse = np.sqrt(mean_squared_error(self.y_train, lgbm_pred))
+        lgbm_cv = RandomizedSearchCV(
+            estimator=lgbm_model,
+            param_distributions={},
+            n_iter=1,
+            cv=5,
+            n_jobs=-1,
+            verbose=0,
+            scoring='neg_root_mean_squared_error',
+            random_state=42
+        )
+        lgbm_cv.fit(self.X_train, self.y_train)
+        lgbm_cv_rmse = -lgbm_cv.best_score_
+        self.best_models['lightgbm'] = lgbm_model
+        self.best_params['lightgbm'] = lgbm_model.get_params()
+        self.best_scores['lightgbm'] = lgbm_cv_rmse
+        # Linear Regression
+        lr_model = LinearRegression()
+        lr_model.fit(self.X_train, self.y_train)
+        lr_pred = lr_model.predict(self.X_train)
+        lr_rmse = np.sqrt(mean_squared_error(self.y_train, lr_pred))
+        from sklearn.model_selection import cross_val_score
+        lr_cv_rmse = np.mean(np.sqrt(-cross_val_score(lr_model, self.X_train, self.y_train, cv=5, scoring='neg_mean_squared_error')))
+        self.best_models['linear'] = lr_model
+        self.best_params['linear'] = lr_model.get_params()
+        self.best_scores['linear'] = lr_cv_rmse
+        print("Default models trained and evaluated (CV RMSE computed for each).")
+        return self.best_models, self.best_params, self.best_scores
     
     def select_best_model(self):
         """Select the best model based on lowest CV_RMSE score"""

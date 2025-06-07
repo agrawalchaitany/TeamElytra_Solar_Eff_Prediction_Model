@@ -55,7 +55,7 @@ def preprocess_data(args):
     train_processed = preprocessor.preprocess(
         df=train_df,
         is_train=True,
-        handle_outliers_method='iqr',
+        handle_outliers_method='percentile',
         handle_invalid=True
     )
     
@@ -79,7 +79,7 @@ def preprocess_data(args):
     return True
 
 def train_models(args):
-    """Train multiple regression models"""
+    """Train, evaluate, and save all models in models/all_models"""
     print("\n" + "="*50)
     print("STEP 2: MODEL TRAINING")
     print("="*50)
@@ -102,61 +102,57 @@ def train_models(args):
     training_time = time.time() - start_time
     print(f"Training completed in {training_time:.2f} seconds.")
     
-    # Save models
+    # Save all trained models
     print("Saving trained models...")
     saved_paths = trainer.save_all_models()
     print(f"Saved {len(saved_paths)} models.")
-    
     return True
 
 def evaluate_models(args):
-    """Evaluate trained models"""
+    """Evaluate trained models and ensemble"""
     print("\n" + "="*50)
     print("STEP 3: MODEL EVALUATION")
     print("="*50)
-    
     evaluator = ModelEvaluator(
         data_dir="dataset/processed_data",
         models_dir="models/all_models",
     )
-    
     # Load data
     evaluator.load_data()
-    
     # Load models
     evaluator.load_models()
-    
     # Evaluate all models
     print("Evaluating models...")
     evaluator.evaluate_all_models(cross_validate=True, cv=5)
-    
     # Compare models and visualize results
     comparison = evaluator.compare_models()
     print("\nModel Comparison:")
     print(comparison)
-    
     # Save comparison results
     comparison_path = os.path.join("results", "model_comparison.csv")
     comparison.to_csv(comparison_path)
     print(f"Comparison results saved to {comparison_path}")
-    
     # For the best model, show more detailed evaluations
     best_model = comparison.index[0]
     print(f"\nBest model based on CV_RMSE: {best_model}")
-    
     if not args.no_plots:
         print("Generating plots for best model...")
         evaluator.plot_predictions(best_model)
         evaluator.plot_residuals(best_model)
         evaluator.feature_importance(best_model)
-        
-        # Save plots
         plt.savefig(f"results/{best_model}_feature_importance.png", dpi=300, bbox_inches='tight')
-
+    # --- ENSEMBLE EVALUATION ---
+    print("\nEvaluating LightGBM + XGBoost Ensemble on training data...")
+    evaluator.evaluate_ensemble(model_names=["lightgbm", "xgboost"], cross_validate=False)
+    # Add ensemble results to comparison table and save
+    comparison = evaluator.compare_models()
+    print("\nUpdated Model Comparison (with Ensemble):")
+    print(comparison)
+    comparison.to_csv(comparison_path)
     return True
 
 def select_best_model(args):
-    """Perform hyperparameter tuning and select best model"""
+    """Select and hypertune only the best model, saving it in models/best_model"""
     print("\n" + "="*50)
     print("STEP 4: MODEL SELECTION & HYPERPARAMETER TUNING")
     print("="*50)
@@ -169,35 +165,33 @@ def select_best_model(args):
     # Load data
     selector.load_data()
     
-    # Initial tuning for all models (coarse grid)
-    print("Performing initial hyperparameter tuning...")
-    if args.fast:
-        print("Fast mode: Limited hyperparameter tuning")
-        selector.tune_random_forest(param_grid={
-            'n_estimators': [100, 200],
-            'max_depth': [None, 10],
-            'min_samples_split': [2, 5]
-        })
-        selector.tune_gradient_boosting(param_grid={
-            'n_estimators': [100, 200],
-            'learning_rate': [0.05, 0.1],
-            'max_depth': [3, 5]
-        })
+    # Load all trained models from models/all_models for evaluation
+    print("Loading all trained models for evaluation...")
+    from src.modeling.model_evaluation import ModelEvaluator
+    evaluator = ModelEvaluator(
+        data_dir="dataset/processed_data",
+        models_dir="models/all_models",
+    )
+    evaluator.load_data()
+    evaluator.load_models()
+    # Try to load previous evaluation results if available
+    comparison_path = os.path.join("results", "model_comparison.csv")
+    if os.path.exists(comparison_path):
+        print("Loading previous model evaluation results from model_comparison.csv...")
+        comparison = pd.read_csv(comparison_path, index_col=0)
     else:
-        selector.tune_gradient_boosting()
-        selector.tune_xgboost()
-        selector.tune_lightgbm()
+        print("Evaluating all models (no previous results found)...")
+        evaluator.evaluate_all_models(cross_validate=True, cv=5)
+        comparison = evaluator.compare_models()
+        comparison.to_csv(comparison_path)
+    print("\nModel Comparison:")
+    print(comparison)
+    best_model = comparison.index[0]
+    print(f"\nBest model based on CV_RMSE: {best_model}")
     
-    # Compare models
-    comparison = selector.compare_models()
-    
-    # Select best model
-    best_model_name, best_model, best_score = selector.select_best_model()
-    print(f"\nInitial model selection complete. Best model: {best_model_name} with RMSE: {best_score:.4f}")
-
-    # Fine-tune only the best model
-    print(f"\nFine-tuning the best model: {best_model_name}")
-    if best_model_name == 'gradient_boosting':
+    # Hypertune only the best model
+    print(f"\nFine-tuning the best model: {best_model}")
+    if best_model == 'gradient_boosting':
         fine_param_grid = {
             'n_estimators': [200, 300, 400, 500],
             'learning_rate': [0.01, 0.03, 0.05, 0.07, 0.1],
@@ -207,33 +201,59 @@ def select_best_model(args):
             'subsample': [0.7, 0.8, 0.9, 1.0]
         }
         selector.tune_gradient_boosting(param_grid=fine_param_grid)
-    elif best_model_name == 'xgboost':
+    elif best_model == 'xgboost':
         fine_param_grid = {
-            'n_estimators': [200, 300, 400, 500],
-            'learning_rate': [0.01, 0.03, 0.05, 0.07, 0.1],
-            'max_depth': [3, 6, 9, 12],
-            'subsample': [0.7, 0.8, 0.9, 1.0],
-            'colsample_bytree': [0.7, 0.8, 0.9, 1.0]
+            'n_estimators': [300, 500, 800, 1200, 1600],
+            'learning_rate': [0.01, 0.02, 0.03, 0.05, 0.07, 0.1],
+            'max_depth': [2, 3, 4, 5, 6, 7, 8],
+            'min_child_weight': [1, 2, 3, 5, 7, 10],
+            'subsample': [0.6, 0.7, 0.8, 0.9, 1.0],
+            'colsample_bytree': [0.6, 0.7, 0.8, 0.9, 1.0],
+            'gamma': [0, 0.1, 0.2, 0.5, 1, 2, 5],
+            'reg_alpha': [0, 0.1, 0.5, 1, 2, 5, 10],
+            'reg_lambda': [0.5, 1, 2, 5, 10]
         }
         selector.tune_xgboost(param_grid=fine_param_grid)
-    elif best_model_name == 'lightgbm':
+    elif best_model == 'lightgbm':
         fine_param_grid = {
             'n_estimators': [200, 300, 400, 500],
             'learning_rate': [0.01, 0.03, 0.05, 0.07, 0.1],
             'max_depth': [3, 6, 9, 12, 15],
             'num_leaves': [20, 31, 50, 70],
             'subsample': [0.7, 0.8, 0.9, 1.0],
-            'colsample_bytree': [0.7, 0.8, 0.9, 1.0]
+            'colsample_bytree': [0.7, 0.8, 0.9, 1.0],
+            'reg_alpha': [0, 0.1, 0.5, 1, 2, 5, 10],
+            'reg_lambda': [0.5, 1, 2, 5, 10]
         }
         selector.tune_lightgbm(param_grid=fine_param_grid)
+    elif best_model == 'linear':
+        print("No fine-tuning implemented for model: linear")
+        # Copy the already trained linear model to best_model directory
+        import shutil
+        src_model_path = os.path.join("models/all_models", "linear.joblib")
+        dst_model_dir = os.path.join("models", "best_model")
+        os.makedirs(dst_model_dir, exist_ok=True)
+        dst_model_path = os.path.join(dst_model_dir, "best_model.joblib")
+        shutil.copy(src_model_path, dst_model_path)
+        # Save info file
+        best_score = comparison.loc[best_model, 'cv_rmse']
+        info = {
+            "model": "linear",
+            "cv_rmse": float(best_score),
+            "params": None
+        }
+        import json
+        with open(os.path.join(dst_model_dir, "best_model_info.json"), "w") as f:
+            json.dump(info, f, indent=4)
+        print(f"Best model saved in models/best_model.")
+        return True
     else:
-        print(f"No fine-tuning implemented for model: {best_model_name}")
-
-    # Re-compare and re-select after fine-tuning
-    comparison = selector.compare_models()
-    best_model_name, best_model, best_score = selector.select_best_model()
-    print(f"\nFinal model selection complete. Best model: {best_model_name} with RMSE: {best_score:.4f}")
+        print(f"No fine-tuning implemented for model: {best_model}")
     
+    # Save the best hypertuned model in models/best_model
+    best_model_name, best_model_obj, best_score = selector.select_best_model()
+    print(f"\nFinal model selection complete. Best model: {best_model_name} with RMSE: {best_score:.4f}")
+    print(f"Best model saved in models/best_model.")
     return True
 
 def run_pipeline(args):
@@ -283,6 +303,7 @@ def parse_arguments():
     parser.add_argument('--evaluate', action='store_true', help='Run model evaluation step')
     parser.add_argument('--select', action='store_true', help='Run model selection and tuning step')
     parser.add_argument('--all', action='store_true', help='Run all pipeline steps')
+    parser.add_argument('--ensemble', action='store_true', help='Run LightGBM+XGBoost ensemble evaluation step')
     
     # Additional options
     parser.add_argument('--fast', action='store_true', help='Run in fast mode with fewer models and iterations')

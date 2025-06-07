@@ -94,7 +94,7 @@ class SolarEfficiencyPredictor:
                 processed_data = self.preprocessor.preprocess(
                     df=data_copy,
                     is_train=False,
-                    handle_outliers_method='iqr',
+                    handle_outliers_method='percentile',
                     handle_invalid=True
                 )
             except Exception as e:

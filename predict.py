@@ -13,6 +13,7 @@ sys.path.append(str(project_root))
 
 from src.data_preprocessing.data_preprocessing import DataPreprocessor
 from src.prediction.predictor import SolarEfficiencyPredictor
+from src.modeling.model_evaluation import ModelEvaluator
 
 def parse_args():
     """Parse command line arguments"""
@@ -21,6 +22,7 @@ def parse_args():
     parser.add_argument('--output', required=True, help='Path to save predictions CSV')
     parser.add_argument('--model', help='Path to model file', default='models/best_model/best_model.joblib')
     parser.add_argument('--verbose', action='store_true', help='Enable verbose output')
+    parser.add_argument('--ensemble', action='store_true', help='Use LightGBM+NN ensemble for prediction')
     return parser.parse_args()
 
 def load_preprocessing_params(params_path):
@@ -77,18 +79,6 @@ def main():
         
     preprocessor = initialize_preprocessor(params_path)
     
-    # Initialize predictor with our preprocessor
-    try:
-        predictor = SolarEfficiencyPredictor(
-            model_path=args.model,
-            preprocessor=preprocessor
-        )
-        if args.verbose:
-            print(f"Model loaded from {args.model}")
-    except Exception as e:
-        print(f"Error loading model: {e}")
-        return False
-    
     # Load input data
     try:
         input_data = pd.read_csv(args.input)
@@ -99,24 +89,60 @@ def main():
         print(f"Error loading input data: {e}")
         return False
     
-    # Make predictions
-    try:
+    # ENSEMBLE PREDICTION
+    if getattr(args, 'ensemble', False):
         if args.verbose:
-            print("Preprocessing input data and making predictions...")
+            print("Using LightGBM+XGBoost ensemble for prediction...")
+        # Load both models using ModelEvaluator
+        evaluator = ModelEvaluator(
+            data_dir="dataset/processed_data",
+            models_dir="models/all_models"
+        )
+        evaluator.load_data()
+        evaluator.load_models(model_names=["lightgbm", "xgboost"])
+        # Preprocess input
+        processed_data = preprocessor.preprocess(
+            df=input_data,
+            is_train=False,
+            handle_outliers_method='percentile',
+            handle_invalid=True
+        )
+        predictions = evaluator.predict_ensemble(processed_data, model_names=["lightgbm", "xgboost"])
+    else:
+        # Initialize predictor with our preprocessor
+        try:
+            predictor = SolarEfficiencyPredictor(
+                model_path=args.model,
+                preprocessor=preprocessor
+            )
+            if args.verbose:
+                print(f"Model loaded from {args.model}")
+        except Exception as e:
+            print(f"Error loading model: {e}")
+            return False
         
-        predictions = predictor.predict(input_data)
-        
-        if args.verbose:
-            print(f"Generated {len(predictions)} predictions")
-    except Exception as e:
-        print(f"Error during prediction: {e}")
-        return False
+        # Make predictions
+        try:
+            if args.verbose:
+                print("Preprocessing input data and making predictions...")
+            # Save processed test data for inspection
+            processed_data = preprocessor.preprocess(input_data, is_train=False)
+            processed_data.to_csv("dataset/processed_data/processed_test.csv", index=False)
+            predictions = predictor.predict(input_data)
+            
+            if args.verbose:
+                print(f"Generated {len(predictions)} predictions")
+        except Exception as e:
+            print(f"Error during prediction: {e}")
+            return False
     
     # Create output DataFrame
     try:
+        # Ensure predictions is 1D
+        predictions_1d = np.array(predictions).flatten()
         output_df = pd.DataFrame({
-            'id': range(len(predictions)),       
-            'efficiency': predictions    
+            'id': range(len(predictions_1d)),       
+            'efficiency': predictions_1d    
         })      
         # Save predictions
         output_df.to_csv(args.output, index=False)

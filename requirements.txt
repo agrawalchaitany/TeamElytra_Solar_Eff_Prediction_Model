@@ -6,3 +6,6 @@ joblib
 scikit-learn
 xgboost
 lightgbm
+tensorflow>=2.8.0
+keras>=2.8.0
+tqdm
