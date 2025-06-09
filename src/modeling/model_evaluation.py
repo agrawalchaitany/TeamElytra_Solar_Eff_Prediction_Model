@@ -329,67 +329,6 @@ class ModelEvaluator:
         
         
         return importance_df
-    
-    def evaluate_ensemble(self, model_names=["lightgbm", "xgboost"], cross_validate=False, cv=5):
-        """
-        Evaluate LightGBM + XGBoost ensemble on training data (does NOT store results in self.results)
-        """
-        # Ensure required models are loaded
-        for name in model_names:
-            if name not in self.models:
-                raise ValueError(f"Model '{name}' not loaded. Load models first.")
-        # Get predictions from each model
-        preds = []
-        for name in model_names:
-            model = self.models[name]
-            pred = model.predict(self.X_train)
-            preds.append(pred)
-        y_pred_ensemble = np.mean(preds, axis=0)
-        # Calculate metrics
-        train_rmse = np.sqrt(mean_squared_error(self.y_train, y_pred_ensemble))
-        train_mae = mean_absolute_error(self.y_train, y_pred_ensemble)
-        train_r2 = r2_score(self.y_train, y_pred_ensemble)
-        results = {
-            'train_rmse': train_rmse,
-            'train_mae': train_mae,
-            'train_r2': train_r2
-        }
-        # Cross-validation for ensemble (optional, slow)
-        if cross_validate:
-            from sklearn.model_selection import KFold
-            cv_scores = []
-            kf = KFold(n_splits=cv, shuffle=True, random_state=42)
-            for train_idx, val_idx in kf.split(self.X_train):
-                X_tr, X_val = self.X_train.iloc[train_idx], self.X_train.iloc[val_idx]
-                y_tr, y_val = self.y_train[train_idx], self.y_train[val_idx]
-                preds_cv = []
-                for name in model_names:
-                    model = self.models[name]
-                    model.fit(X_tr, y_tr)
-                    pred = model.predict(X_val)
-                    preds_cv.append(pred)
-                y_pred_cv = np.mean(preds_cv, axis=0)
-                cv_scores.append(mean_squared_error(y_val, y_pred_cv, squared=False))
-            results['cv_rmse'] = np.mean(cv_scores)
-        # Do NOT store results in self.results
-        print("--- Evaluation for ensemble_lightgbm+xgboost ---")
-        print(f"Training RMSE: {train_rmse:.4f}")
-        print(f"Training MAE: {train_mae:.4f}")
-        print(f"Training R²: {train_r2:.4f}")
-        if cross_validate:
-            print(f"Cross-validation RMSE: {results['cv_rmse']:.4f}")
-        return results
-
-    def predict_ensemble(self, X, model_names=["lightgbm", "xgboost"]):
-        """
-        Predict using LightGBM + XGBoost ensemble
-        """
-        preds = []
-        for name in model_names:
-            model = self.models[name]
-            pred = model.predict(X)
-            preds.append(pred)
-        return np.mean(preds, axis=0)
 
 # Example usage
 if __name__ == "__main__":

@@ -1,14 +1,14 @@
 {
     "model_name": "lightgbm",
-    "cv_rmse": 0.10306332557929813,
+    "cv_rmse": 0.10305498862109744,
     "parameters": {
-        "subsample": 1.0,
-        "reg_lambda": 5,
-        "reg_alpha": 2,
-        "num_leaves": 50,
-        "n_estimators": 300,
-        "max_depth": 3,
-        "learning_rate": 0.05,
-        "colsample_bytree": 1.0
+        "n_estimators": 4702,
+        "learning_rate": 0.00530984151170432,
+        "max_depth": 2,
+        "num_leaves": 57,
+        "subsample": 0.7881291781100734,
+        "colsample_bytree": 0.7115861555411175,
+        "reg_alpha": 0.4590319333384071,
+        "reg_lambda": 5.761534171992457
     }
 }

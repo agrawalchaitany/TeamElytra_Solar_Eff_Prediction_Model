@@ -141,9 +141,6 @@ def evaluate_models(args):
         evaluator.plot_residuals(best_model)
         evaluator.feature_importance(best_model)
         plt.savefig(f"results/{best_model}_feature_importance.png", dpi=300, bbox_inches='tight')
-    # --- ENSEMBLE EVALUATION ---
-    print("\nEvaluating LightGBM + XGBoost Ensemble on training data...")
-    evaluator.evaluate_ensemble(model_names=["lightgbm", "xgboost"], cross_validate=False)
     # Add ensemble results to comparison table and save
     comparison = evaluator.compare_models()
     print("\nUpdated Model Comparison (with Ensemble):")
@@ -213,7 +210,7 @@ def select_best_model(args):
             'reg_alpha': [0, 0.1, 0.5, 1, 2, 5, 10],
             'reg_lambda': [0.5, 1, 2, 5, 10]
         }
-        selector.tune_xgboost(param_grid=fine_param_grid)
+        selector.tune_xgboost_optuna(n_trials=50, cv=5, n_jobs=-1, verbose=1)
     elif best_model == 'lightgbm':
         fine_param_grid = {
             'n_estimators': [200, 300, 400, 500],
@@ -225,28 +222,7 @@ def select_best_model(args):
             'reg_alpha': [0, 0.1, 0.5, 1, 2, 5, 10],
             'reg_lambda': [0.5, 1, 2, 5, 10]
         }
-        selector.tune_lightgbm(param_grid=fine_param_grid)
-    elif best_model == 'linear':
-        print("No fine-tuning implemented for model: linear")
-        # Copy the already trained linear model to best_model directory
-        import shutil
-        src_model_path = os.path.join("models/all_models", "linear.joblib")
-        dst_model_dir = os.path.join("models", "best_model")
-        os.makedirs(dst_model_dir, exist_ok=True)
-        dst_model_path = os.path.join(dst_model_dir, "best_model.joblib")
-        shutil.copy(src_model_path, dst_model_path)
-        # Save info file
-        best_score = comparison.loc[best_model, 'cv_rmse']
-        info = {
-            "model": "linear",
-            "cv_rmse": float(best_score),
-            "params": None
-        }
-        import json
-        with open(os.path.join(dst_model_dir, "best_model_info.json"), "w") as f:
-            json.dump(info, f, indent=4)
-        print(f"Best model saved in models/best_model.")
-        return True
+        selector.tune_lightgbm_optuna(n_trials=100, cv=5, n_jobs=-1, verbose=1)
     else:
         print(f"No fine-tuning implemented for model: {best_model}")
     

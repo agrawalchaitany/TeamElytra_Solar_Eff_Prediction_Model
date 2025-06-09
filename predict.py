@@ -89,52 +89,33 @@ def main():
         print(f"Error loading input data: {e}")
         return False
     
-    # ENSEMBLE PREDICTION
-    if getattr(args, 'ensemble', False):
+
+    # Initialize predictor with our preprocessor
+    try:
+        predictor = SolarEfficiencyPredictor(
+            model_path=args.model,
+            preprocessor=preprocessor
+        )
         if args.verbose:
-            print("Using LightGBM+XGBoost ensemble for prediction...")
-        # Load both models using ModelEvaluator
-        evaluator = ModelEvaluator(
-            data_dir="dataset/processed_data",
-            models_dir="models/all_models"
-        )
-        evaluator.load_data()
-        evaluator.load_models(model_names=["lightgbm", "xgboost"])
-        # Preprocess input
-        processed_data = preprocessor.preprocess(
-            df=input_data,
-            is_train=False,
-            handle_outliers_method='percentile',
-            handle_invalid=True
-        )
-        predictions = evaluator.predict_ensemble(processed_data, model_names=["lightgbm", "xgboost"])
-    else:
-        # Initialize predictor with our preprocessor
-        try:
-            predictor = SolarEfficiencyPredictor(
-                model_path=args.model,
-                preprocessor=preprocessor
-            )
-            if args.verbose:
-                print(f"Model loaded from {args.model}")
-        except Exception as e:
-            print(f"Error loading model: {e}")
-            return False
+            print(f"Model loaded from {args.model}")
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        return False
+    
+    # Make predictions
+    try:
+        if args.verbose:
+            print("Preprocessing input data and making predictions...")
+        # Save processed test data for inspection
+        processed_data = preprocessor.preprocess(input_data, is_train=False)
+        processed_data.to_csv("dataset/processed_data/processed_test.csv", index=False)
+        predictions = predictor.predict(input_data)
         
-        # Make predictions
-        try:
-            if args.verbose:
-                print("Preprocessing input data and making predictions...")
-            # Save processed test data for inspection
-            processed_data = preprocessor.preprocess(input_data, is_train=False)
-            processed_data.to_csv("dataset/processed_data/processed_test.csv", index=False)
-            predictions = predictor.predict(input_data)
-            
-            if args.verbose:
-                print(f"Generated {len(predictions)} predictions")
-        except Exception as e:
-            print(f"Error during prediction: {e}")
-            return False
+        if args.verbose:
+            print(f"Generated {len(predictions)} predictions")
+    except Exception as e:
+        print(f"Error during prediction: {e}")
+        return False
     
     # Create output DataFrame
     try:

@@ -48,11 +48,6 @@ class ModelTrainer:
     def initialize_models(self, include_all=True, best_params=None, include_nn=True):
         """Initialize regression models, optionally with fine-tuned parameters"""
         models = {}
-        # Linear model
-        if best_params and 'linear' in best_params:
-            models['linear'] = LinearRegression(**best_params['linear'])
-        else:
-            models['linear'] = LinearRegression()
         # Gradient Boosting (less overfitting defaults)
         if best_params and 'gradient_boosting' in best_params:
             models['gradient_boosting'] = GradientBoostingRegressor(**best_params['gradient_boosting'])

@@ -3,12 +3,13 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import joblib
+import optuna
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.ensemble import GradientBoostingRegressor
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
-from sklearn.linear_model import LinearRegression
+
 
 class ModelSelector:
     def __init__(self, data_dir=None, output_dir=None):
@@ -226,6 +227,76 @@ class ModelSelector:
         
         return best_model, best_params, best_score
     
+    def tune_xgboost_optuna(self, n_trials=50, cv=5, n_jobs=-1, verbose=1):
+        """
+        Hyperparameter tuning for XGBoost using Optuna to minimize cross-validated RMSE
+        """
+        def objective(trial):
+            params = {
+                'n_estimators': trial.suggest_int('n_estimators', 100, 1200),
+                'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
+                'max_depth': trial.suggest_int('max_depth', 2, 10),
+                'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
+                'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+                'gamma': trial.suggest_float('gamma', 0, 5),
+                'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),
+                'reg_lambda': trial.suggest_float('reg_lambda', 0.5, 10),
+                'random_state': 42,
+                'tree_method': 'hist',
+                'n_jobs': n_jobs
+            }
+            model = XGBRegressor(**params)
+            from sklearn.model_selection import cross_val_score
+            cv_scores = cross_val_score(model, self.X_train, self.y_train, cv=cv, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+            return -np.mean(cv_scores)
+        study = optuna.create_study(direction='minimize')
+        study.optimize(objective, n_trials=n_trials, show_progress_bar=verbose > 0)
+        best_params = study.best_params
+        best_model = XGBRegressor(**best_params)
+        best_model.fit(self.X_train, self.y_train)
+        best_score = study.best_value
+        print(f"Optuna XGBoost best RMSE: {best_score:.4f}")
+        print(f"Best parameters: {best_params}")
+        self.best_models['xgboost'] = best_model
+        self.best_params['xgboost'] = best_params
+        self.best_scores['xgboost'] = best_score
+        return best_model, best_params, best_score
+
+    def tune_lightgbm_optuna(self, n_trials=100, cv=5, n_jobs=-1, verbose=1):
+        """
+        Hyperparameter tuning for LightGBM using Optuna to minimize cross-validated RMSE
+        """
+        def objective(trial):
+            params = {
+                'n_estimators': trial.suggest_int('n_estimators', 100, 10000),
+                'learning_rate': trial.suggest_float('learning_rate', 0.005, 0.3, log=True),
+                'max_depth': trial.suggest_int('max_depth', 2, 15),
+                'num_leaves': trial.suggest_int('num_leaves', 20, 200),
+                'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+                'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),
+                'reg_lambda': trial.suggest_float('reg_lambda', 0.5, 10),
+                'random_state': 42,
+                'n_jobs': n_jobs
+            }
+            model = LGBMRegressor(**params)
+            from sklearn.model_selection import cross_val_score
+            cv_scores = cross_val_score(model, self.X_train, self.y_train, cv=cv, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+            return -np.mean(cv_scores)
+        study = optuna.create_study(direction='minimize')
+        study.optimize(objective, n_trials=n_trials, show_progress_bar=verbose > 0)
+        best_params = study.best_params
+        best_model = LGBMRegressor(**best_params)
+        best_model.fit(self.X_train, self.y_train)
+        best_score = study.best_value
+        print(f"Optuna LightGBM best RMSE: {best_score:.4f}")
+        print(f"Best parameters: {best_params}")
+        self.best_models['lightgbm'] = best_model
+        self.best_params['lightgbm'] = best_params
+        self.best_scores['lightgbm'] = best_score
+        return best_model, best_params, best_score
+        
     def train_and_evaluate_all_models(self):
         """Train and evaluate all candidate models with default parameters (no tuning)"""
         # Initialize models with default/fine-tuned defaults
@@ -291,15 +362,15 @@ class ModelSelector:
         self.best_scores['xgboost'] = xgb_cv_rmse
         # LightGBM
         lgbm_model = LGBMRegressor(
-            n_estimators=500,
-            learning_rate=0.02,
-            max_depth=5,
-            num_leaves=20,
-            subsample=0.7,
-            colsample_bytree=0.7,
-            reg_alpha=1.0,
-            reg_lambda=2.0,
-            random_state=42
+                    n_estimators=528,
+                    learning_rate=0.02361368006658606,
+                    max_depth=2,
+                    num_leaves=101,
+                    subsample=0.8535450231075647,
+                    colsample_bytree=0.9723004818925387,
+                    reg_alpha=0.9723004818925387,
+                    reg_lambda=6.292691253538978,
+                    random_state=42
         )
         lgbm_model.fit(self.X_train, self.y_train)
         lgbm_pred = lgbm_model.predict(self.X_train)
@@ -319,16 +390,7 @@ class ModelSelector:
         self.best_models['lightgbm'] = lgbm_model
         self.best_params['lightgbm'] = lgbm_model.get_params()
         self.best_scores['lightgbm'] = lgbm_cv_rmse
-        # Linear Regression
-        lr_model = LinearRegression()
-        lr_model.fit(self.X_train, self.y_train)
-        lr_pred = lr_model.predict(self.X_train)
-        lr_rmse = np.sqrt(mean_squared_error(self.y_train, lr_pred))
-        from sklearn.model_selection import cross_val_score
-        lr_cv_rmse = np.mean(np.sqrt(-cross_val_score(lr_model, self.X_train, self.y_train, cv=5, scoring='neg_mean_squared_error')))
-        self.best_models['linear'] = lr_model
-        self.best_params['linear'] = lr_model.get_params()
-        self.best_scores['linear'] = lr_cv_rmse
+
         print("Default models trained and evaluated (CV RMSE computed for each).")
         return self.best_models, self.best_params, self.best_scores
     
