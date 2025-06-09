@@ -19,10 +19,13 @@ Each step is implemented as a separate, reusable module for clarity and maintain
 
 Feature engineering is designed with photovoltaic domain knowledge, including:
 - **Derived Features**: Calculating power (voltage × current), temperature differentials, and soiling-adjusted irradiance
+- **Physics-Based Features**: Power-to-irradiance ratio, soiling impact, maintenance frequency, age-efficiency factor, humidity-temperature interaction, wind cooling effect
+- **Advanced Interactions**: Performance efficiency, soiling degradation, environmental stress, wind chill effect, pressure-normalized power
 - **Categorical Encoding**: One-hot encoding for string_id, error_code, and installation_type
 - **Temporal Features**: Extracting time-based features if timestamps are present (e.g., hour, day, season)
 - **Interaction Terms**: Combining features such as humidity × temperature to capture non-linear effects
 - **Scaling**: RobustScaler is used to handle outliers in sensor data
+- **Feature Selection**: Low-importance features are dropped after encoding (e.g., some error codes, installation types, string IDs)
 
 All feature engineering logic is implemented in `src/data_preprocessing/data_preprocessing.py`.
 
