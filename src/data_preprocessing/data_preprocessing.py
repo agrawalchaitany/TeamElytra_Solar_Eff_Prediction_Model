@@ -51,110 +51,68 @@ class DataPreprocessor:
                        
         # Handle irradiance
         if 'irradiance' in df_cleaned.columns:
-            df_cleaned.loc[df_cleaned['irradiance'] < 0, 'irradiance'] = 0
             df_cleaned.loc[df_cleaned['irradiance'] > 1300, 'irradiance'] = 1300
-            # Do NOT drop rows with irradiance < 20, just set to 20
             df_cleaned.loc[df_cleaned['irradiance'] < 20, 'irradiance'] = 20
 
         # Voltage and current (physics: must be non-negative)
         for col in ['voltage', 'current']:
             if col in df_cleaned.columns:
-                # Fill negatives with median instead of NaN
+                # Fill negatives with median
                 median_val = df_cleaned[col].median() if not df_cleaned[col].dropna().empty else 0
                 df_cleaned.loc[df_cleaned[col] < 0, col] = median_val
 
-        # Temperature cleaning
-        if 'temperature' in df_cleaned.columns:
-            median_val = df_cleaned['temperature'].median() if not df_cleaned['temperature'].dropna().empty else 20
-            df_cleaned.loc[(df_cleaned['temperature'] < -40) | (df_cleaned['temperature'] > 60), 'temperature'] = median_val
+        # # Temperature cleaning
+        # if 'temperature' in df_cleaned.columns:
+        #     median_val = df_cleaned['temperature'].median() if not df_cleaned['temperature'].dropna().empty else 20
+        #     df_cleaned.loc[(df_cleaned['temperature'] < -40) | (df_cleaned['temperature'] > 60), 'temperature'] = median_val
+       
+        # # Module temperature cleaning
+        # if 'module_temperature' in df_cleaned.columns:
+        #     median_val = df_cleaned['module_temperature'].median() if not df_cleaned['module_temperature'].dropna().empty else 30
+        #     df_cleaned.loc[(df_cleaned['module_temperature'] < -20) | (df_cleaned['module_temperature'] > 90), 'module_temperature'] = median_val
+        #     # Panel temp should not be much lower than ambient (physics-informed check)
+        #     if 'temperature' in df_cleaned.columns:
+        #         too_low = df_cleaned['module_temperature'] < (df_cleaned['temperature'] - 5)
+        #         df_cleaned.loc[too_low, 'module_temperature'] = median_val
 
-        if 'module_temperature' in df_cleaned.columns:
-            median_val = df_cleaned['module_temperature'].median() if not df_cleaned['module_temperature'].dropna().empty else 30
-            df_cleaned.loc[(df_cleaned['module_temperature'] < -20) | (df_cleaned['module_temperature'] > 90), 'module_temperature'] = median_val
-            # Panel temp should not be much lower than ambient (physics-informed check)
-            if 'temperature' in df_cleaned.columns:
-                too_low = df_cleaned['module_temperature'] < (df_cleaned['temperature'] - 5)
-                df_cleaned.loc[too_low, 'module_temperature'] = median_val
+        # Humidity [0, 100]
+        if 'humidity' in df_cleaned.columns:
+            df_cleaned.loc[(df_cleaned['humidity'] < 0), 'humidity'] = 0
+            df_cleaned.loc[(df_cleaned['humidity'] > 100), 'humidity'] = 100
+        # # Cloud Coverage [0, 100]
+        # if 'cloud_coverage' in df_cleaned.columns:
+        #     df_cleaned.loc[(df_cleaned['cloud_coverage'] < 0), 'cloud_coverage'] = 0
+        #     df_cleaned.loc[(df_cleaned['cloud_coverage'] > 100), 'cloud_coverage'] = 100
 
+        # # Wind Speed [0, 50]
+        # if 'wind_speed' in df_cleaned.columns:
+        #     df_cleaned.loc[(df_cleaned['wind_speed'] < 0), 'wind_speed'] = 0
+        #     df_cleaned.loc[(df_cleaned['wind_speed'] > 50), 'wind_speed'] = 50
+
+        # # Pressure [850, 1100]
+        # if 'pressure' in df_cleaned.columns:
+        #     df_cleaned.loc[(df_cleaned['pressure'] < 850), 'pressure'] = 850
+        #     df_cleaned.loc[(df_cleaned['pressure'] > 1100), 'pressure'] = 1100
+
+        # Panel Age [>= 0, <= 30]
+        if 'panel_age' in df_cleaned.columns:
+            df_cleaned.loc[(df_cleaned['panel_age'] < 0), 'panel_age'] = 0
+            df_cleaned.loc[(df_cleaned['panel_age'] > 30), 'panel_age'] = 30
+
+        # Maintenance Count [>= 0]
+        if 'maintenance_count' in df_cleaned.columns:
+            df_cleaned.loc[df_cleaned['maintenance_count'] < 0, 'maintenance_count'] = 0
+        
 
         # Save medians for imputation (for test data)
+        # 'soiling_ratio', 'humidity', 'cloud_coverage', 'wind_speed', 'pressure', 'panel_age', 'maintenance_count',, 'temperature', 'module_temperature'
         if is_train:
-            for col in ['irradiance', 'voltage', 'current', 'temperature', 'module_temperature']:
+            for col in ['irradiance', 'voltage', 'current', 'panel_age', 'maintenance_count','humidity']:                    
                 if col in df_cleaned.columns:
                     vals = df_cleaned[col].dropna()
                     self.valid_medians[col] = vals.median() if not vals.empty else 0
 
-        return df_cleaned
-
-    # temp disabled for now,
-    def handle_invalid_(self, df, is_train=True):
-        """
-        Handle physically impossible or inconsistent values in solar panel measurements
-        
-        Parameters:
-        -----------
-        df : pandas DataFrame
-            DataFrame containing solar panel measurements
-        is_train : bool, default=True
-            Whether the data is training data
-        
-        Returns:
-        --------
-        df_copy : pandas DataFrame
-            DataFrame with corrected values
-        """
-        df_copy = df.copy()
-        
-        if is_train:
-            # Store valid medians for imputation
-            self.valid_medians = {}
-            
-            # Calculate median of valid irradiance values (positive values)
-            valid_irradiance = df_copy.loc[df_copy['irradiance'] > 0, 'irradiance']
-            if not valid_irradiance.empty:
-                self.valid_medians['irradiance'] = valid_irradiance.median()
-            else:
-                self.valid_medians['irradiance'] = 0
-                
-            # Calculate median of valid voltage values (positive values)
-            valid_voltage = df_copy.loc[df_copy['voltage'] > 0, 'voltage']
-            if not valid_voltage.empty:
-                self.valid_medians['voltage'] = valid_voltage.median()
-            else:
-                self.valid_medians['voltage'] = 0
-                
-            # Calculate median of valid current values (positive values)
-            valid_current = df_copy.loc[df_copy['current'] > 0, 'current']
-            if not valid_current.empty:
-                self.valid_medians['current'] = valid_current.median()
-            else:
-                self.valid_medians['current'] = 0
-        
-        # 1. Handle irradiance values
-        # Replace negative irradiance with 0
-        df_copy.loc[df_copy['irradiance'] < 0, 'irradiance'] = 0
-        
-        # Handle inconsistency: irradiance is 0 but current or voltage is positive
-        inconsistent_irradiance = (df_copy['irradiance'] == 0) & ((df_copy['current'] > 0) | (df_copy['voltage'] > 0))
-        df_copy.loc[inconsistent_irradiance, 'irradiance'] = self.valid_medians['irradiance']
-        
-        # 2. Handle voltage values
-        # Replace negative voltage with 0
-        df_copy.loc[df_copy['voltage'] < 0, 'voltage'] = 0
-        
-        # Handle inconsistency: voltage is 0 but irradiance and current are positive
-        inconsistent_voltage = (df_copy['voltage'] == 0) & (df_copy['irradiance'] > 0) & (df_copy['current'] > 0)
-        df_copy.loc[inconsistent_voltage, 'voltage'] = self.valid_medians['voltage']
-        
-        # 3. Handle current values
-        # Replace negative current with 0
-        df_copy.loc[df_copy['current'] < 0, 'current'] = 0
-        
-        # Handle inconsistency: current is 0 but irradiance and voltage are positive
-        inconsistent_current = (df_copy['current'] == 0) & (df_copy['irradiance'] > 0) & (df_copy['voltage'] > 0)
-        df_copy.loc[inconsistent_current, 'current'] = self.valid_medians['current']
-        
-        return df_copy    
+        return df_cleaned   
     
     def handle_missing_values(self, df, is_train=True):
         """
@@ -222,7 +180,6 @@ class DataPreprocessor:
         df_copy['wind_chill_effect'] = df_copy['wind_speed'] / (df_copy['module_temperature'] + 1)
 
         df_copy['pressure_normalized_power'] = df_copy['power'] / df_copy['pressure'].replace(0, 1)
-
         # Add to numerical columns for scaling if not present
         new_features = [
             'power', 'temp_differential', 'power_irradiance_ratio', 'soiling_impact',
@@ -235,7 +192,7 @@ class DataPreprocessor:
         for col in new_features:
             if col in df_copy.columns and col not in self.numerical_cols:
                 self.numerical_cols.append(col)
-        # Do NOT update self.train_columns here
+        
         return df_copy
     
     

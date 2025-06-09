@@ -2,8 +2,6 @@ import os
 import pandas as pd
 import numpy as np
 import joblib
-from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import GradientBoostingRegressor
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
 
@@ -45,22 +43,9 @@ class ModelTrainer:
         
         return self.X_train, self.y_train
     
-    def initialize_models(self, include_all=True, best_params=None, include_nn=True):
+    def initialize_models(self, include_all=True, best_params=None):
         """Initialize regression models, optionally with fine-tuned parameters"""
         models = {}
-        # Gradient Boosting (less overfitting defaults)
-        if best_params and 'gradient_boosting' in best_params:
-            models['gradient_boosting'] = GradientBoostingRegressor(**best_params['gradient_boosting'])
-        else:
-            models['gradient_boosting'] = GradientBoostingRegressor(
-                n_estimators=800,
-                learning_rate=0.01,
-                max_depth=6,
-                min_samples_split=10,
-                min_samples_leaf=3,
-                subsample=0.85,
-                random_state=42
-            )
         # Add more advanced models if requested
         if include_all:
             # XGBoost (less overfitting defaults)
@@ -84,14 +69,14 @@ class ModelTrainer:
                 models['lightgbm'] = LGBMRegressor(**best_params['lightgbm'])
             else:
                 models['lightgbm'] = LGBMRegressor(
-                    n_estimators=900,
-                    learning_rate=0.01,
-                    max_depth=7,
-                    num_leaves=35,
-                    subsample=0.85,
-                    colsample_bytree=0.85,
-                    reg_alpha=0.8,
-                    reg_lambda=1.2,
+                    n_estimators=6509,
+                    learning_rate=0.007786302796586891,
+                    max_depth=2,
+                    num_leaves=39,
+                    subsample=0.7412306270300187,
+                    colsample_bytree=0.8643446505605613,
+                    reg_alpha=1.462174878560702,
+                    reg_lambda=3.962977085177355,
                     random_state=42
                 )
         self.models = models
@@ -158,19 +143,6 @@ class ModelTrainer:
             saved_paths[model_name] = path
         
         return saved_paths
-    
-    def ensemble_predict(self, X, model_names=['lightgbm', 'xgboost']):
-        """
-        Average predictions from LightGBM and XGBoost
-        """
-        preds = []
-        for name in model_names:
-            model = self.trained_models.get(name)
-            if model is None:
-                raise ValueError(f"Model '{name}' not trained.")
-            pred = model.predict(X)
-            preds.append(pred)
-        return np.mean(preds, axis=0)
 
 # Example usage
 if __name__ == "__main__":
@@ -180,13 +152,3 @@ if __name__ == "__main__":
     trainer.train_all_models()
     trainer.save_all_models()
     print("All models trained and saved successfully!")
-
-    # Example: Ensemble prediction on training data
-    X = trainer.X_train
-    y_true = trainer.y_train
-    y_pred_ensemble = trainer.ensemble_predict(X, model_names=["lightgbm", "xgboost"])
-    print("Ensemble predictions (first 10):", y_pred_ensemble[:10])
-    # Optionally, evaluate ensemble performance
-    from sklearn.metrics import mean_squared_error, r2_score
-    print("Ensemble RMSE:", mean_squared_error(y_true, y_pred_ensemble, squared=False))
-    print("Ensemble R2:", r2_score(y_true, y_pred_ensemble))

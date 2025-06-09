@@ -188,40 +188,9 @@ def select_best_model(args):
     
     # Hypertune only the best model
     print(f"\nFine-tuning the best model: {best_model}")
-    if best_model == 'gradient_boosting':
-        fine_param_grid = {
-            'n_estimators': [200, 300, 400, 500],
-            'learning_rate': [0.01, 0.03, 0.05, 0.07, 0.1],
-            'max_depth': [3, 5, 7, 9],
-            'min_samples_split': [2, 5, 10, 15],
-            'min_samples_leaf': [1, 2, 4, 6],
-            'subsample': [0.7, 0.8, 0.9, 1.0]
-        }
-        selector.tune_gradient_boosting(param_grid=fine_param_grid)
-    elif best_model == 'xgboost':
-        fine_param_grid = {
-            'n_estimators': [300, 500, 800, 1200, 1600],
-            'learning_rate': [0.01, 0.02, 0.03, 0.05, 0.07, 0.1],
-            'max_depth': [2, 3, 4, 5, 6, 7, 8],
-            'min_child_weight': [1, 2, 3, 5, 7, 10],
-            'subsample': [0.6, 0.7, 0.8, 0.9, 1.0],
-            'colsample_bytree': [0.6, 0.7, 0.8, 0.9, 1.0],
-            'gamma': [0, 0.1, 0.2, 0.5, 1, 2, 5],
-            'reg_alpha': [0, 0.1, 0.5, 1, 2, 5, 10],
-            'reg_lambda': [0.5, 1, 2, 5, 10]
-        }
+    if best_model == 'xgboost':
         selector.tune_xgboost_optuna(n_trials=50, cv=5, n_jobs=-1, verbose=1)
     elif best_model == 'lightgbm':
-        fine_param_grid = {
-            'n_estimators': [200, 300, 400, 500],
-            'learning_rate': [0.01, 0.03, 0.05, 0.07, 0.1],
-            'max_depth': [3, 6, 9, 12, 15],
-            'num_leaves': [20, 31, 50, 70],
-            'subsample': [0.7, 0.8, 0.9, 1.0],
-            'colsample_bytree': [0.7, 0.8, 0.9, 1.0],
-            'reg_alpha': [0, 0.1, 0.5, 1, 2, 5, 10],
-            'reg_lambda': [0.5, 1, 2, 5, 10]
-        }
         selector.tune_lightgbm_optuna(n_trials=100, cv=5, n_jobs=-1, verbose=1)
     else:
         print(f"No fine-tuning implemented for model: {best_model}")
@@ -279,7 +248,6 @@ def parse_arguments():
     parser.add_argument('--evaluate', action='store_true', help='Run model evaluation step')
     parser.add_argument('--select', action='store_true', help='Run model selection and tuning step')
     parser.add_argument('--all', action='store_true', help='Run all pipeline steps')
-    parser.add_argument('--ensemble', action='store_true', help='Run LightGBM+XGBoost ensemble evaluation step')
     
     # Additional options
     parser.add_argument('--fast', action='store_true', help='Run in fast mode with fewer models and iterations')

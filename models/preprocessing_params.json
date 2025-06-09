@@ -36,7 +36,7 @@
     "bounds": {
         "temperature": [
             0.0,
-            52.19729714769991
+            53.10041537509996
         ],
         "irradiance": [
             0.0,
@@ -48,7 +48,7 @@
         ],
         "panel_age": [
             0.0,
-            34.66379961929999
+            30.0
         ],
         "maintenance_count": [
             0.0,
@@ -87,7 +87,7 @@
             185.34579451049552
         ],
         "temp_differential": [
-            -34.0641127292,
+            -35.5001661215,
             39.56065688269987
         ],
         "power_irradiance_ratio": [
@@ -104,14 +104,14 @@
         ],
         "age_efficiency_factor": [
             0.0,
-            30.99208164709815
+            28.665396526499972
         ],
         "humidity_temperature_interaction": [
             0.0,
-            4057.0898764654457
+            4132.33939544986
         ],
         "wind_cooling_effect": [
-            -282.685911929153,
+            -305.6395274095716,
             364.42587360369964
         ],
         "performance_efficiency": [
@@ -120,11 +120,11 @@
         ],
         "soiling_degradation": [
             0.0,
-            30.99208164709815
+            28.665396526499972
         ],
         "environmental_stress": [
             0.0,
-            295708.54595265276
+            303200.1539356898
         ],
         "wind_chill_effect": [
             0.001953639779664679,
@@ -139,8 +139,9 @@
         "irradiance": 499.6547299,
         "voltage": 12.35013818,
         "current": 1.558413082,
-        "temperature": 24.72034535,
-        "module_temperature": 29.8576686
+        "panel_age": 17.49773098,
+        "maintenance_count": 4.0,
+        "humidity": 50.22415155
     },
     "train_columns": [
         "temperature",

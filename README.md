@@ -37,7 +37,7 @@ All feature engineering logic is implemented in `src/data_preprocessing/data_pre
 ## 📂 Source File References
 
 - **Data Preprocessing & Feature Engineering**: `src/data_preprocessing/data_preprocessing.py`
-- **EDA**: `src/eda/data_exploration.ipynb`, `src/eda/data_analysis.ipynb`
+- **EDA**: `src/eda/data_exploration.ipynb`
 - **Model Training**: `src/modeling/model_training.py`
 - **Model Evaluation**: `src/modeling/model_evaluation.py`
 - **Model Selection & Tuning**: `src/modeling/model_selection.py`
@@ -59,9 +59,6 @@ Solar_Eff_Prediction_Model/
 ├── dataset/                 # Raw and processed datasets
 │   ├── train.csv
 │   ├── test.csv
-│   ├── Clean_X_Train.csv
-│   ├── Clean_Test_Data.csv
-│   ├── Efficiency_y_train.csv
 │   ├── sample_submission.csv
 │   └── processed_data/
 │       ├── X_Train.csv
@@ -72,7 +69,6 @@ Solar_Eff_Prediction_Model/
 │   │   └── data_preprocessing.py   # Data cleaning & feature engineering
 │   ├── eda/
 │   │   ├── data_exploration.ipynb  # EDA notebook
-│   │   └── data_analysis.ipynb
 │   ├── modeling/
 │   │   ├── model_training.py       # Model training
 │   │   ├── model_evaluation.py     # Model evaluation
@@ -87,12 +83,7 @@ Solar_Eff_Prediction_Model/
 │   │   ├── best_model.joblib
 │   │   └── best_model_info.json
 │   ├── all_models/
-│   │   ├── gradient_boosting.joblib
-│   │   ├── knn.joblib
 │   │   ├── lightgbm.joblib
-│   │   ├── linear.joblib
-│   │   ├── random_forest.joblib
-│   │   ├── svr.joblib
 │   │   └── xgboost.joblib
 │   ├── preprocessing_params.json   # Preprocessing parameters
 │   └── robust_scaler.joblib        # Saved RobustScaler for prediction
@@ -137,7 +128,7 @@ python main.py --select
 
 ### Command Line
 ```powershell
-python predict.py --input dataset/Clean_Test_Data.csv --output predictions.csv --verbose
+python predict.py --input dataset/test.csv --output results/predictions.csv --verbose
 ```
 - `--input`: Path to your input CSV file (columns must match training features)
 - `--output`: Path to save predictions (default: predictions.csv)
@@ -148,8 +139,8 @@ python predict.py --input dataset/Clean_Test_Data.csv --output predictions.csv -
 from src.prediction.predictor import SolarEfficiencyPredictor
 predictor = SolarEfficiencyPredictor()
 preds_df = predictor.predict_from_csv(
-    csv_path="dataset/Clean_Test_Data.csv",
-    output_path="predictions.csv"
+    csv_path="dataset/test.csv",
+    output_path="results/predictions.csv"
 )
 print(preds_df.head())
 ```
@@ -164,7 +155,7 @@ temperature,irradiance,humidity,panel_age,maintenance_count,soiling_ratio,voltag
 ## 🧩 Pipeline Components
 
 - **Data Preprocessing**: Cleans, imputes, and engineers features from raw data. Saves preprocessing parameters and scaler for consistent prediction.
-- **Model Training**: Trains multiple regression models (Linear, RandomForest, GradientBoosting, XGBoost, LightGBM, SVR, KNN)
+- **Model Training**: Trains multiple regression models (XGBoost, LightGBM)
 - **Model Evaluation**: Evaluates models using cross-validation RMSE and other metrics. Only model files (not scalers) are loaded for evaluation.
 - **Model Selection**: Hyperparameter tuning and best model selection (by CV RMSE)
 - **Prediction**: Predicts efficiency for new data using the trained model and saved preprocessing/scaler artifacts
@@ -190,22 +181,10 @@ scikit-learn
 xgboost
 lightgbm
 joblib
+tqdm
+optuna
 ```
 
 ---
-
-## 🤝 Contributing
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/new-feature`)
-3. Commit changes (`git commit -am 'Add new feature'`)
-4. Push to branch (`git push origin feature/new-feature`)
-5. Create a Pull Request
-
----
-
-## 📝 License
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
+## 📌 Important Notes
 **Note:** This pipeline is designed specifically for solar panel efficiency prediction and incorporates domain knowledge about photovoltaic systems. The feature engineering and data preprocessing steps are tailored for solar energy applications.

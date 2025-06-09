@@ -22,7 +22,6 @@ def parse_args():
     parser.add_argument('--output', required=True, help='Path to save predictions CSV')
     parser.add_argument('--model', help='Path to model file', default='models/best_model/best_model.joblib')
     parser.add_argument('--verbose', action='store_true', help='Enable verbose output')
-    parser.add_argument('--ensemble', action='store_true', help='Use LightGBM+NN ensemble for prediction')
     return parser.parse_args()
 
 def load_preprocessing_params(params_path):

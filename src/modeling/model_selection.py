@@ -6,7 +6,6 @@ import joblib
 import optuna
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.ensemble import GradientBoostingRegressor
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
 
@@ -49,183 +48,7 @@ class ModelSelector:
         print(f"Loaded y_train with shape: {self.y_train.shape}")
         
         return self.X_train, self.y_train
-
     
-    def tune_xgboost(self, param_grid=None, cv=5, n_jobs=-1, verbose=1):
-        """
-        Tune XGBRegressor hyperparameters
-        
-        Parameters:
-        -----------
-        param_grid : dict, optional
-            Grid of parameters to search
-        cv : int, default=5
-            Number of cross-validation folds
-        n_jobs : int, default=-1
-            Number of parallel jobs
-        verbose : int, default=1
-            Verbosity level
-            
-        Returns:
-        --------
-        best_model : fitted estimator
-            Best XGBRegressor model
-        """
-        if param_grid is None:
-            param_grid = {
-                'n_estimators': [100, 200, 300],
-                'learning_rate': [0.01, 0.05, 0.1],
-                'max_depth': [3, 6, 9],
-                'subsample': [0.7, 0.8, 0.9],
-                'colsample_bytree': [0.7, 0.8, 0.9]
-            }
-        
-        model = XGBRegressor(random_state=42)
-        
-        print("Tuning XGBRegressor...")
-        grid_search = RandomizedSearchCV(
-            estimator=model,
-            param_distributions=param_grid,
-            n_iter=20,
-            cv=cv,
-            n_jobs=n_jobs,
-            verbose=verbose,
-            scoring='neg_root_mean_squared_error',
-            random_state=42
-        )
-        
-        grid_search.fit(self.X_train, self.y_train)
-        
-        best_model = grid_search.best_estimator_
-        best_params = grid_search.best_params_
-        best_score = -grid_search.best_score_  # Convert back to RMSE
-        
-        print(f"Best XGBoost RMSE: {best_score:.4f}")
-        print(f"Best parameters: {best_params}")
-        
-        self.best_models['xgboost'] = best_model
-        self.best_params['xgboost'] = best_params
-        self.best_scores['xgboost'] = best_score
-        
-        return best_model, best_params, best_score
-    
-    def tune_lightgbm(self, param_grid=None, cv=5, n_jobs=-1, verbose=1):
-        """
-        Tune LGBMRegressor hyperparameters
-        
-        Parameters:
-        -----------
-        param_grid : dict, optional
-            Grid of parameters to search
-        cv : int, default=5
-            Number of cross-validation folds
-        n_jobs : int, default=-1
-            Number of parallel jobs
-        verbose : int, default=1
-            Verbosity level
-            
-        Returns:
-        --------
-        best_model : fitted estimator
-            Best LGBMRegressor model
-        """
-        if param_grid is None:
-            param_grid = {
-                'n_estimators': [100, 200, 300],
-                'learning_rate': [0.01, 0.05, 0.1],
-                'max_depth': [3, 6, 9, 12],
-                'num_leaves': [20, 31, 50],
-                'subsample': [0.7, 0.8, 0.9],
-                'colsample_bytree': [0.7, 0.8, 0.9]
-            }
-        
-        model = LGBMRegressor(random_state=42)
-        
-        print("Tuning LGBMRegressor...")
-        grid_search = RandomizedSearchCV(
-            estimator=model,
-            param_distributions=param_grid,
-            n_iter=20,
-            cv=cv,
-            n_jobs=n_jobs,
-            verbose=verbose,
-            scoring='neg_root_mean_squared_error',
-            random_state=42
-        )
-        
-        grid_search.fit(self.X_train, self.y_train)
-        
-        best_model = grid_search.best_estimator_
-        best_params = grid_search.best_params_
-        best_score = -grid_search.best_score_  # Convert back to RMSE
-        
-        print(f"Best LightGBM RMSE: {best_score:.4f}")
-        print(f"Best parameters: {best_params}")
-        
-        self.best_models['lightgbm'] = best_model
-        self.best_params['lightgbm'] = best_params
-        self.best_scores['lightgbm'] = best_score
-        
-        return best_model, best_params, best_score
-    
-    def tune_gradient_boosting(self, param_grid=None, cv=5, n_jobs=-1, verbose=1):
-        """
-        Tune GradientBoostingRegressor hyperparameters
-        
-        Parameters:
-        -----------
-        param_grid : dict, optional
-            Grid of parameters to search
-        cv : int, default=5
-            Number of cross-validation folds
-        n_jobs : int, default=-1
-            Number of parallel jobs
-        verbose : int, default=1
-            Verbosity level
-            
-        Returns:
-        --------
-        best_model : fitted estimator
-            Best GradientBoostingRegressor model
-        """
-        if param_grid is None:
-            param_grid = {
-                'n_estimators': [100, 200, 300],
-                'learning_rate': [0.01, 0.05, 0.1],
-                'max_depth': [3, 5, 7],
-                'min_samples_split': [2, 5, 10],
-                'min_samples_leaf': [1, 2, 4],
-                'subsample': [0.7, 0.8, 0.9]
-            }
-        
-        model = GradientBoostingRegressor(random_state=42)
-        
-        print("Tuning GradientBoostingRegressor...")
-        grid_search = RandomizedSearchCV(
-            estimator=model,
-            param_distributions=param_grid,
-            n_iter=20,
-            cv=cv,
-            n_jobs=n_jobs,
-            verbose=verbose,
-            scoring='neg_root_mean_squared_error',
-            random_state=42
-        )
-        
-        grid_search.fit(self.X_train, self.y_train)
-        
-        best_model = grid_search.best_estimator_
-        best_params = grid_search.best_params_
-        best_score = -grid_search.best_score_  # Convert back to CV_RMSE
-
-        print(f"Best GradientBoosting CV_RMSE: {best_score:.4f}")
-        print(f"Best parameters: {best_params}")
-        
-        self.best_models['gradient_boosting'] = best_model
-        self.best_params['gradient_boosting'] = best_params
-        self.best_scores['gradient_boosting'] = best_score
-        
-        return best_model, best_params, best_score
     
     def tune_xgboost_optuna(self, n_trials=50, cv=5, n_jobs=-1, verbose=1):
         """
@@ -263,7 +86,7 @@ class ModelSelector:
         self.best_scores['xgboost'] = best_score
         return best_model, best_params, best_score
 
-    def tune_lightgbm_optuna(self, n_trials=100, cv=5, n_jobs=-1, verbose=1):
+    def tune_lightgbm_optuna(self, n_trials=50, cv=5, n_jobs=-1, verbose=1):
         """
         Hyperparameter tuning for LightGBM using Optuna to minimize cross-validated RMSE
         """
@@ -303,34 +126,6 @@ class ModelSelector:
         self.best_models = {}
         self.best_params = {}
         self.best_scores = {}
-        # Gradient Boosting
-        gb_model = GradientBoostingRegressor(
-            n_estimators=500,
-            learning_rate=0.02,
-            max_depth=4,
-            min_samples_split=8,
-            min_samples_leaf=4,
-            subsample=0.7,
-            random_state=42
-        )
-        gb_model.fit(self.X_train, self.y_train)
-        gb_pred = gb_model.predict(self.X_train)
-        gb_rmse = np.sqrt(mean_squared_error(self.y_train, gb_pred))
-        gb_cv = RandomizedSearchCV(
-            estimator=gb_model,
-            param_distributions={},
-            n_iter=1,
-            cv=5,
-            n_jobs=-1,
-            verbose=0,
-            scoring='neg_root_mean_squared_error',
-            random_state=42
-        )
-        gb_cv.fit(self.X_train, self.y_train)
-        gb_cv_rmse = -gb_cv.best_score_
-        self.best_models['gradient_boosting'] = gb_model
-        self.best_params['gradient_boosting'] = gb_model.get_params()
-        self.best_scores['gradient_boosting'] = gb_cv_rmse
         # XGBoost
         xgb_model = XGBRegressor(
             n_estimators=500,
@@ -467,7 +262,6 @@ if __name__ == "__main__":
     selector.load_data()
     
     # Tune models
-    selector.tune_gradient_boosting()
     selector.tune_xgboost()
     selector.tune_lightgbm()
     
